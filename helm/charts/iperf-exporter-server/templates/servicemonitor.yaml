@@ -1,0 +1,17 @@
+{{- if .Values.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "iperf-exporter-server.fullname" . }}
+  labels:
+    {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "iperf-exporter-server.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: {{ .Values.serviceMonitor.port }}
+      interval: {{ .Values.serviceMonitor.interval }}
+      path: /metrics
+      honorLabels: true
+{{- end -}}

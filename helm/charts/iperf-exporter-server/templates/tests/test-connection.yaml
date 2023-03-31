@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "iperf-exporter-server.fullname" . }}-test-connection"
+  labels:
+    {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: curl
+      image: alpine
+      command: ["/bin/sh"]
+      args: ["-cx", 'sleep  5 && apk --update add curl && (curl http://{{ include "iperf-exporter-server.fullname" . }}:{{ .Values.service.port }}/metrics | grep weblate_exporter_app_up) && exit 0']
+  restartPolicy: Never

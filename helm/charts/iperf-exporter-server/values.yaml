@@ -1,0 +1,77 @@
+# Default values for iperf-exporter-server.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+replicaCount: 1
+
+image:
+  repository: loktionovam/iperf_exporter_server
+  pullPolicy: IfNotPresent
+  tag: "v1.1.2"
+
+config:
+  port: 5001
+  proto: udp
+  len: 1280
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceMonitor:
+  enabled: true
+  interval: 1m
+  port: http
+
+serviceAccount:
+  # serviceAccount.create -- Specifies whether a service account should be created
+  create: true
+  # serviceAccount.annotations -- Annotations to add to the service account
+  annotations: {}
+  # serviceAccount.name -- The name of the service account to use. If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 9868
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+  - host: iperf-exporter.local
+    paths:
+    - path: /
+      pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: iperf-exporter-tls
+  #    hosts:
+  #      - iperf-exporter.local
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

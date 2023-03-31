@@ -1,0 +1,9 @@
+venv
+.idea/
+__pycache__/
+htmlcov/
+.coverage
+.pytest_cache/
+coverage.xml
+*.tgz
+.vscode
