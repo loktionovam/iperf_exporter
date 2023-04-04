@@ -8,7 +8,7 @@ replicaCount: 1
 image:
   repository: loktionovam/iperf_exporter_server
   pullPolicy: IfNotPresent
-  tag: "v1.1.2"
+  tag: "0.1.0"
 
 config:
   port: 5001

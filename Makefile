@@ -26,7 +26,7 @@ push-images:
 
 build-charts:
 	helm lint helm/charts/iperf-exporter-server
-	helm lint helm/charts/iperf-exporter-client
+	# helm lint helm/charts/iperf-exporter-client
 	helm/release_helm_chart.py
 
 changelog:

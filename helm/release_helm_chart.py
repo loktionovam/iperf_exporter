@@ -11,13 +11,13 @@ and creates a helm chart package.
 """
 
 script_path = os.path.dirname(os.path.abspath(__file__))
-chart_path = os.path.join(script_path, "charts/weblate-exporter")
+chart_path = os.path.join(script_path, "charts/iperf-exporter-server")
 chart_info_path = os.path.join(chart_path, "Chart.yaml")
 
 chart_values_path = os.path.join(chart_path, "values.yaml")
 
-app_version = os.environ.get("WEBLATE_EXPORTER_IMAGE_TAG", "v0.1.0")
-app_image = os.environ.get("WEBLATE_EXPORTER_IMAGE_NAME", "loktionovam/weblate_exporter")
+app_version = os.environ.get("IPERF_EXPORTER_IMAGE_TAG", "v0.1.0")
+app_image = os.environ.get("IPERF_EXPORTER_SERVER_IMAGE_NAME", "loktionovam/iperf_exporter_server")
 chart_version = app_version.strip("v")
 
 

@@ -16,7 +16,6 @@ spec:
 
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
         {{- include "iperf-exporter-server.selectorLabels" . | nindent 8 }}
     spec:
@@ -33,11 +32,11 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["python", "-m", "weblate_exporter", "-c", "/etc/weblate/weblate_exporter.yml"]
+          command: ["python", "-m", "iperf_exporter"]
           # command: ["sleep", "3600"]
           ports:
             - name: http
-              containerPort: {{ .Values.config.weblateExporterPort }}
+              containerPort: 9868
               protocol: TCP
           readinessProbe:
             httpGet:
