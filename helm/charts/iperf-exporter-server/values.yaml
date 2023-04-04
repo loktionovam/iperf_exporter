@@ -22,7 +22,7 @@ fullnameOverride: ""
 serviceMonitor:
   enabled: true
   interval: 1m
-  port: http
+  port: http-metrics
 
 serviceAccount:
   # serviceAccount.create -- Specifies whether a service account should be created

@@ -8,8 +8,8 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: http-metrics
       protocol: TCP
-      name: http
+      name: http-metrics
   selector:
     {{- include "iperf-exporter-server.selectorLabels" . | nindent 4 }}

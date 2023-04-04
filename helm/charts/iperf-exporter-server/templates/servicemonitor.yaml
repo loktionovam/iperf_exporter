@@ -5,12 +5,13 @@ metadata:
   name: {{ include "iperf-exporter-server.fullname" . }}
   labels:
     {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+    release: {{ $.Release.Name | quote }}
 spec:
   selector:
     matchLabels:
       {{- include "iperf-exporter-server.selectorLabels" . | nindent 6 }}
   endpoints:
-    - port: {{ .Values.serviceMonitor.port }}
+    - port: {{ .Values.serviceMonitor.port | quote }}
       interval: {{ .Values.serviceMonitor.interval }}
       path: /metrics
       honorLabels: true

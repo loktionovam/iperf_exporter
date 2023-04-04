@@ -13,7 +13,6 @@ spec:
     metadata:
       annotations:
         {{- with .Values.podAnnotations }}
-
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
@@ -33,24 +32,23 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["python", "-m", "iperf_exporter"]
-          # command: ["sleep", "3600"]
           ports:
-            - name: http
+            - name: http-metrics
               containerPort: 9868
               protocol: TCP
           readinessProbe:
             httpGet:
               path: /metrics
-              port: http
+              port: http-metrics
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           env:
           - name: IPERF_EXPORTER_PORT
-            value: {{ .Values.config.port }}
+            value: {{ .Values.config.port | quote }}
           - name: IPERF_EXPORTER_PROTO
             value: {{ .Values.config.proto }}
           - name: IPERF_EXPORTER_LEN
-            value: {{ .Values.config.len }}
+            value: {{ .Values.config.len | quote }}
 
       {{- with .Values.nodeSelector }}
       nodeSelector:
