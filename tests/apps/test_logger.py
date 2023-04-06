@@ -5,7 +5,8 @@ import iperf_exporter.logger
 
 
 class TestLogger(TestCase):
-    def test_log(self):
+    @mock.patch.dict(os.environ, {"IPERF_EXPORTER_MODE": "server"})
+    def test_server_log(self):
         importlib.reload(iperf_exporter.logger)
         log = iperf_exporter.logger.log
         self.assertEqual(20, log.level)
@@ -16,13 +17,13 @@ class TestLogger(TestCase):
         self.assertEqual(
             cm.output,
             [
-                "INFO:iperf_exporter:info message",
-                "WARNING:iperf_exporter:warn message",
+                "INFO:iperf_exporter_server:info message",
+                "WARNING:iperf_exporter_server:warn message",
             ],
         )
 
-    @mock.patch.dict(os.environ, {"DEBUG": "1"})
-    def test_log_debug(self):
+    @mock.patch.dict(os.environ, {"DEBUG": "1", "IPERF_EXPORTER_MODE": "server"})
+    def test_server_log_debug(self):
         importlib.reload(iperf_exporter.logger)
         log = iperf_exporter.logger.log
         self.assertEqual(10, log.level)
@@ -34,8 +35,8 @@ class TestLogger(TestCase):
         self.assertEqual(
             cm.output,
             [
-                "INFO:iperf_exporter:info message",
-                "WARNING:iperf_exporter:warn message",
-                "DEBUG:iperf_exporter:debug message",
+                "INFO:iperf_exporter_server:info message",
+                "WARNING:iperf_exporter_server:warn message",
+                "DEBUG:iperf_exporter_server:debug message",
             ],
         )
