@@ -112,6 +112,7 @@ def run_client(args):
 
     iperf_client.run()
     while True:
+        iperf_client.read_output()
         time.sleep(1)
 
 
