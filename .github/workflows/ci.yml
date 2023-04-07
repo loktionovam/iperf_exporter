@@ -1,4 +1,4 @@
-name: weblate prometheus exporter
+name: IPerf prometheus exporter
 
 on: [pull_request, push, workflow_dispatch]
 
@@ -22,7 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-    - name: Test weblate exporter application
+    - name: Test iperf exporter application
       run: |
         make test-apps
     - name: "Upload coverage to Codecov"
@@ -33,17 +33,18 @@ jobs:
 
   build-images:
     runs-on: ubuntu-20.04
-    name: Build weblate exporter image
+    name: Build iperf exporter image
     needs: [build-apps]
     env:
-      WEBLATE_EXPORTER_IMAGE_NAME: loktionovam/weblate_exporter
+      IPERF_EXPORTER_SERVER_IMAGE_NAME: loktionovam/iperf_exporter_server
+      IPERF_EXPORTER_CLIENT_IMAGE_NAME: loktionovam/iperf_exporter_client
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1.6.0
-      - name: Build and test weblate exporter image
+      - name: Build and test iperf exporter images
         run: |
           make build-images
           python -m pip install --upgrade pip
@@ -62,10 +63,11 @@ jobs:
 
   build-charts:
     runs-on: ubuntu-20.04
-    name: Build weblate-exporter helm chart
+    name: Build iperf-exporter helm chart
     needs: [ build-images ]
     env:
-      WEBLATE_EXPORTER_IMAGE_NAME: loktionovam/weblate_exporter
+      IPERF_EXPORTER_SERVER_IMAGE_NAME: loktionovam/iperf_exporter_server
+      IPERF_EXPORTER_CLIENT_IMAGE_NAME: loktionovam/iperf_exporter_client
 
     steps:
       - name: Checkout
