@@ -42,4 +42,4 @@ class TestRequirements(TestCase):
         )
         parsed_log_entry = json.loads(log_entry)
         self.assertEqual("INFO", parsed_log_entry["levelname"])
-        self.assertEqual("iperf_exporter", parsed_log_entry["name"])
+        self.assertEqual("iperf_exporter_server", parsed_log_entry["name"])

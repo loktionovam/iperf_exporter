@@ -1,9 +1,5 @@
 # IPerf prometheus exporter
 
-[![iperf prometheus exporter](https://github.com/loktionovam/iperf_exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/loktionovam/iperf_exporter/actions/workflows/ci.yml)
-
-[![codecov](https://codecov.io/gh/loktionovam/iperf_exporter/branch/main/graph/badge.svg?token=3OWCAKRWEA)](https://codecov.io/gh/loktionovam/iperf_exporter)
-
 Prometheus exporter for iperf server metrics
 
 * [IPerf prometheus exporter](#iperf-prometheus-exporter)

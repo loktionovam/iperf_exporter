@@ -28,6 +28,7 @@ ENV DEBUG=0 \
     IPERF_EXPORTER_PROTO=udp \
     IPERF_EXPORTER_LEN=1280 \
     IPERF_EXPORTER_BIND_PORT=9868 \
+    IPERF_EXPORTER_METRIC_TTL=604800 \
     IPERF_EXPORTER_CLIENT_BANDWIDTH=1M \
     IPERF_EXPORTER_CLIENT_PEER=127.0.0.1
 
@@ -39,4 +40,3 @@ USER root
 RUN trivy rootfs --exit-code 1 --no-progress --skip-files /usr/local/bin/trivy /
 
 FROM iperf_exporter as main
-

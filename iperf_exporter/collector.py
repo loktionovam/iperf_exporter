@@ -35,6 +35,12 @@ class IPerfUDPMetrics:
             "pps",
             "netpwr",
         ]
+        for name in metric_names:
+            metric_name = f"{self.metrics_prefix}_{name}"
+            self.data[metric_name] = GaugeMetricFamily(
+                metric_name, "", labels=label_names
+            )
+
         for id, out in output.items():
             for name in metric_names:
                 metric_name = f"{self.metrics_prefix}_{name}"
@@ -46,10 +52,13 @@ class IPerfUDPMetrics:
                     out.peer_address,
                     out.peer_port,
                 ]
-                self.data[metric_name] = GaugeMetricFamily(
-                    metric_name, "", labels=label_names
-                )
-                self.data[metric_name].add_metric(label_values, str(getattr(out, name)))
+                log.debug(f"Add metric {metric_name = } with {label_values = }")
+                try:
+                    self.data[metric_name].add_metric(
+                        label_values, str(getattr(out, name))
+                    )
+                except AttributeError:
+                    log.info(f"Client {id = } doesn't have metric {name = }")
 
     def __iter__(self):
         for metric in self.data.values():
@@ -64,14 +73,13 @@ class IPerfCollector:
     https://github.com/prometheus/client_python#custom-collectors
     """
 
-    def __init__(self, port, proto, len):
+    def __init__(self, port, proto, len, metric_ttl):
         """ """
-        self.server = IPerfServer(port, proto, len)
+        self.server = IPerfServer(port, proto, len, metric_ttl)
         self.server.run()
         self.metrics = None
 
     def collect(self):
-        log.info("Starting iperf metrics collector")
         self.server.read_output()
         log.info(self.server.output)
         self.metrics = IPerfUDPMetrics(self.server.output)

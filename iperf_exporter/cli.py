@@ -4,7 +4,6 @@ import time
 import configargparse
 from prometheus_client import start_http_server
 from prometheus_client.core import REGISTRY
-
 from iperf_exporter.collector import IPerfCollector
 from iperf_exporter.logger import log
 from iperf_exporter.iperf import IPerfClient
@@ -64,6 +63,23 @@ def parse_args(args):
     )
 
     parser.add(
+        "-t",
+        "--iperf_exporter_metric_ttl",
+        metavar="iperf_exporter_metric_ttl",
+        help="Lifetime of inactive clients",
+        type=int,
+        default=os.environ.get("IPERF_EXPORTER_METRIC_TTL", 604800),
+    )
+
+    parser.add(
+        "-v",
+        "--iperf_exporter_debug",
+        metavar="iperf_exporter_debug",
+        help="Debug mode on/off (1/0)",
+        default=os.environ.get("DEBUG", "0"),
+    )
+
+    parser.add(
         "-b",
         "--iperf_exporter_client_bandwidth",
         metavar="iperf_exporter_client_bandwidth",
@@ -89,6 +105,7 @@ def run_exporter(args):
         port=args.iperf_exporter_port,
         proto=args.iperf_exporter_proto,
         len=args.iperf_exporter_len,
+        metric_ttl=args.iperf_exporter_metric_ttl,
     )
     REGISTRY.register(collector)
 

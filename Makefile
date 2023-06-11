@@ -30,7 +30,7 @@ build-charts:
 	helm/release_helm_chart.py
 
 changelog:
-ifeq ($(GIT_BRANCH_NAME), main)
+ifeq ($(GIT_BRANCH_NAME), master)
 	@echo "Current branch is $(GIT_BRANCH_NAME), create changelog"
 	gitchangelog > CHANGELOG.md
 else

@@ -9,23 +9,6 @@
 
 {{ template "chart.sourcesSection" . }}
 
-## TL;DR;
-
-```console
-$ helm repo add iperf-exporter-server https://raw.githubusercontent.com/loktionovam/iperf_exporter/gh-pages/
-$ helm repo update
-
-
-$ helm search repo --versions iperf-exporter-server
-
- NAME                             	CHART VERSION	APP VERSION	DESCRIPTION
- iperf-exporter-server/iperf-exporter-server	0.3.2        	v0.3.2     	IPerf prometheus metrics exporter
-
-$  helm install iperf-exporter-server iperf-exporter-server/iperf-exporter-server \
-    --version 0.3.2
-
-$ helm test iperf-exporter-server
-```
 
 {{ template "chart.requirementsSection" . }}
 

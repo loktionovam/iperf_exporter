@@ -1,0 +1,10 @@
+---
+version: "3.4"
+
+services:
+  iperf-exporter-server:
+    image: iperf_exporter_server:v1.0.0
+    container_name: iperf-exporter-server
+    network_mode: host
+    environment:
+      IPERF_EXPORTER_LEN: 1200

@@ -1,0 +1,6 @@
+------------------------------------------------------------
+Server listening on UDP port 5001 with pid 4720
+Receiving 1280 byte datagrams
+UDP buffer size:  208 KByte (default)
+------------------------------------------------------------
+[ 3] local 127.0.0.1%eth0 port 5001 connected with 127.0.0.2 port 52370
