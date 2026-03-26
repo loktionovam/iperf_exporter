@@ -1,22 +1,35 @@
+{{- if .Values.server.enabled }}
+{{- $clientBandwidthContext := .Values.server.config.clientBandwidthHint -}}
+{{- if and .Values.client.enabled (eq $clientBandwidthContext "") -}}
+{{- $clientBandwidthContext = .Values.client.config.bandwidth -}}
+{{- end -}}
+{{- $clientAdditionalParamsContext := .Values.server.config.clientAdditionalParamsHint -}}
+{{- if and .Values.client.enabled (eq $clientAdditionalParamsContext "") -}}
+{{- $clientAdditionalParamsContext = .Values.client.config.additionalParams -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "iperf-exporter-server.fullname" . }}
+  name: {{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}
   labels:
     {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.server.replicaCount }}
   selector:
     matchLabels:
-      {{- include "iperf-exporter-server.selectorLabels" . | nindent 6 }}
+      {{- include "iperf-exporter-server.componentSelectorLabels" (dict "root" . "component" "server") | nindent 6 }}
   template:
     metadata:
       annotations:
-        {{- with .Values.podAnnotations }}
+        {{- with .Values.server.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "iperf-exporter-server.selectorLabels" . | nindent 8 }}
+        {{- include "iperf-exporter-server.componentSelectorLabels" (dict "root" . "component" "server") | nindent 8 }}
+        {{- with .Values.server.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -26,39 +39,57 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: server
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["python", "-m", "iperf_exporter"]
+          env:
+            - name: IPERF_EXPORTER_MODE
+              value: "server"
+            - name: IPERF_EXPORTER_PORT
+              value: {{ .Values.server.config.port | quote }}
+            - name: IPERF_EXPORTER_PROTO
+              value: {{ .Values.server.config.proto | quote }}
+            - name: IPERF_EXPORTER_LEN
+              value: {{ .Values.server.config.len | quote }}
+            - name: IPERF_EXPORTER_BIND_PORT
+              value: {{ .Values.server.service.port | quote }}
+            - name: IPERF_EXPORTER_METRIC_TTL
+              value: {{ .Values.server.config.metricTtl | quote }}
+            - name: IPERF_EXPORTER_PATH_TRACE_TTL
+              value: {{ .Values.server.config.pathTraceTtl | quote }}
+            - name: IPERF_EXPORTER_PATH_TRACE_MAX_HOPS
+              value: {{ .Values.server.config.pathTraceMaxHops | quote }}
+            - name: IPERF_EXPORTER_PATH_TRACE_TIMEOUT
+              value: {{ .Values.server.config.pathTraceTimeout | quote }}
+            - name: IPERF_EXPORTER_CONTEXT_CLIENT_BANDWIDTH
+              value: {{ $clientBandwidthContext | quote }}
+            - name: IPERF_EXPORTER_CONTEXT_CLIENT_ADDITIONAL_PARAMS
+              value: {{ $clientAdditionalParamsContext | quote }}
+            - name: IPERF_EXPORTER_SERVER_ADDITIONAL_PARAMS
+              value: {{ .Values.server.config.additionalParams | quote }}
           ports:
             - name: http-metrics
-              containerPort: 9868
+              containerPort: {{ .Values.server.service.port }}
               protocol: TCP
           readinessProbe:
             httpGet:
               path: /metrics
               port: http-metrics
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          env:
-          - name: IPERF_EXPORTER_PORT
-            value: {{ .Values.config.port | quote }}
-          - name: IPERF_EXPORTER_PROTO
-            value: {{ .Values.config.proto }}
-          - name: IPERF_EXPORTER_LEN
-            value: {{ .Values.config.len | quote }}
-
-      {{- with .Values.nodeSelector }}
+            {{- toYaml .Values.server.resources | nindent 12 }}
+      {{- with .Values.server.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.server.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.server.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

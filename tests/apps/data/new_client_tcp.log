@@ -1,0 +1,9 @@
+------------------------------------------------------------
+Server listening on TCP port 5001 with pid 13430
+Read buffer size: 8192 Byte (Dist bin width=1.00 KByte)
+TCP congestion control default cubic
+TCP window size: 131072 Byte (default)
+------------------------------------------------------------
+[  4] local 45.33.58.123%eth0 port 5001 connected with 45.56.85.133 port 49960 (peer 2.2.1-rc) on 2026-03-26 20:00:56.425 (UTC)
+[ ID] Interval        Transfer    Bandwidth       Reads=Dist
+[  4] 0.00-1.00 sec  124000000 Bytes  1040000000 bits/sec  22249=798:2637:2061:767:2165:1563:589:11669

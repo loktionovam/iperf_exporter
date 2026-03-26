@@ -1,9 +1,11 @@
+{{- if .Values.server.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "iperf-exporter-server.fullname" . }}-test-connection"
+  name: "{{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}-test-connection"
   labels:
     {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
   annotations:
     "helm.sh/hook": test
 spec:
@@ -11,5 +13,11 @@ spec:
     - name: curl
       image: alpine
       command: ["/bin/sh"]
-      args: ["-cx", 'sleep  5 && apk --update add curl && (curl http://{{ include "iperf-exporter-server.fullname" . }}:{{ .Values.service.port }}/metrics ) && exit 0']
+      args:
+        - -cx
+        - >
+          sleep 5 &&
+          apk --update add curl &&
+          curl http://{{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}:{{ .Values.server.service.port }}/metrics
   restartPolicy: Never
+{{- end }}

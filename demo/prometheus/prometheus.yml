@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 2s
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
+
+  - job_name: iperf-exporter
+    static_configs:
+      - targets:
+          - iperf-exporter-server-udp:9868
+        labels:
+          protocol: udp
+          instance_name: iperf-exporter-server-udp
+      - targets:
+          - iperf-exporter-server-udp-2:9868
+        labels:
+          protocol: udp
+          instance_name: iperf-exporter-server-udp-2
+      - targets:
+          - iperf-exporter-server-tcp:9868
+        labels:
+          protocol: tcp
+          instance_name: iperf-exporter-server-tcp
+      - targets:
+          - iperf-exporter-server-tcp-2:9868
+        labels:
+          protocol: tcp
+          instance_name: iperf-exporter-server-tcp-2

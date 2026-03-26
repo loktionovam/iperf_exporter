@@ -1,77 +1,166 @@
 # Default values for iperf-exporter-server.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
 
-
-replicaCount: 1
-
+# -- Container image settings shared by server and optional client workloads.
 image:
+  # -- Image repository for the exporter containers.
   repository: loktionovam/iperf_exporter_server
+  # -- Kubernetes image pull policy.
   pullPolicy: IfNotPresent
+  # -- Image tag to deploy.
   tag: "0.1.2-1-gcf8f1c7"
 
-config:
-  port: 5001
-  proto: udp
-  len: 1280
-
+# -- Image pull secrets for private registries.
 imagePullSecrets: []
+# -- Override the chart name used in resource names.
 nameOverride: ""
+# -- Override the full generated release name.
 fullnameOverride: ""
 
-serviceMonitor:
-  enabled: true
-  interval: 1m
-  port: http-metrics
-
+# -- Service account settings for the server workload.
 serviceAccount:
-  # serviceAccount.create -- Specifies whether a service account should be created
+  # -- Create a dedicated ServiceAccount for the server workload.
   create: true
-  # serviceAccount.annotations -- Annotations to add to the service account
+  # -- Additional annotations for the ServiceAccount.
   annotations: {}
-  # serviceAccount.name -- The name of the service account to use. If not set and create is true, a name is generated using the fullname template
+  # -- Existing ServiceAccount name to use when `create=false`.
   name: ""
 
-podAnnotations: {}
-
+# -- Pod-level security context shared by workloads.
 podSecurityContext: {}
   # fsGroup: 2000
 
+# -- Container security context shared by workloads.
 securityContext:
+  # -- Mount the container filesystem as read-only.
   readOnlyRootFilesystem: true
+  # -- Require the container to run as a non-root user.
   runAsNonRoot: true
+  # -- Numeric UID used by the container process.
   runAsUser: 1000
 
-service:
-  type: ClusterIP
-  port: 9868
+# -- Server workload configuration.
+server:
+  # -- Deploy the server workload.
+  enabled: true
+  # -- Number of server replicas.
+  replicaCount: 1
+  # -- Extra annotations for the server pod template.
+  podAnnotations: {}
+  # -- Extra labels for the server pod template.
+  podLabels: {}
+  # -- Environment-level server settings passed to the exporter.
+  config:
+    # -- iperf server listen port.
+    port: 5001
+    # -- Protocol used by the iperf server (`udp` or `tcp`).
+    proto: udp
+    # -- Buffer length passed to the iperf server.
+    len: 1280
+    # -- TTL for inactive peer metrics before they are removed.
+    metricTtl: 604800
+    # -- Seconds to cache `tracepath` snapshots. Set to `0` to disable path-trace metrics.
+    pathTraceTtl: 300
+    # -- Maximum number of hops used by `tracepath`.
+    pathTraceMaxHops: 16
+    # -- Timeout in seconds for one `tracepath` execution.
+    pathTraceTimeout: 10
+    # -- Optional client bandwidth hint shown in Grafana measurement-context tables when the client is external to this chart.
+    clientBandwidthHint: ""
+    # -- Optional client extra params hint shown in Grafana measurement-context tables when the client is external to this chart.
+    clientAdditionalParamsHint: ""
+    # -- Extra iperf server flags appended to the server command, for example `--histograms=100u,20`.
+    additionalParams: ""
+  # -- Kubernetes Service settings exposing exporter metrics.
+  service:
+    # -- Service type for the server metrics endpoint.
+    type: ClusterIP
+    # -- Service port for the Prometheus metrics endpoint.
+    port: 9868
+  # -- Optional Ingress exposing the server metrics endpoint.
+  ingress:
+    # -- Enable ingress creation for the metrics service.
+    enabled: false
+    # -- Ingress class name.
+    className: ""
+    # -- Additional ingress annotations.
+    annotations: {}
+      # kubernetes.io/ingress.class: nginx
+      # kubernetes.io/tls-acme: "true"
+    # -- Ingress host and path rules.
+    hosts:
+      - host: iperf-exporter.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    # -- TLS configuration for the ingress.
+    tls: []
+  # -- CPU and memory resources for the server container.
+  resources:
+    limits:
+      # -- CPU limit for the server container.
+      cpu: 100m
+      # -- Memory limit for the server container.
+      memory: 64Mi
+    requests:
+      # -- CPU request for the server container.
+      cpu: 100m
+      # -- Memory request for the server container.
+      memory: 64Mi
+  # -- Node selector for the server workload.
+  nodeSelector: {}
+  # -- Tolerations for the server workload.
+  tolerations: []
+  # -- Affinity rules for the server workload.
+  affinity: {}
 
-ingress:
+# -- Optional client workload configuration.
+client:
+  # -- Deploy the client workload.
   enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-  - host: iperf-exporter.local
-    paths:
-    - path: /
-      pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: iperf-exporter-tls
-  #    hosts:
-  #      - iperf-exporter.local
+  # -- Controller type for the client workload (`DaemonSet` or `Deployment`).
+  controller: DaemonSet
+  # -- Replica count when `client.controller=Deployment`.
+  replicaCount: 1
+  # -- Explicit iperf peer hostname or IP. When empty, the chart targets the in-release server service.
+  peer: ""
+  # -- Extra annotations for the client pod template.
+  podAnnotations: {}
+  # -- Extra labels for the client pod template.
+  podLabels: {}
+  # -- Environment-level client settings passed to the exporter.
+  config:
+    # -- Destination port used by the iperf client.
+    port: 5001
+    # -- Protocol used by the iperf client (`udp` or `tcp`).
+    proto: udp
+    # -- Client bandwidth passed to iperf. For TCP, positive values enable rate limiting.
+    bandwidth: 1M
+    # -- Extra iperf client flags appended to the client command, for example `--trip-times`.
+    additionalParams: ""
+  # -- CPU and memory resources for the client container.
+  resources:
+    limits:
+      # -- CPU limit for the client container.
+      cpu: 100m
+      # -- Memory limit for the client container.
+      memory: 64Mi
+    requests:
+      # -- CPU request for the client container.
+      cpu: 100m
+      # -- Memory request for the client container.
+      memory: 64Mi
+  # -- Node selector for the client workload.
+  nodeSelector: {}
+  # -- Tolerations for the client workload.
+  tolerations: []
+  # -- Affinity rules for the client workload.
+  affinity: {}
 
-resources:
-  limits:
-    cpu: 100m
-    memory: 64Mi
-  requests:
-    cpu: 100m
-    memory: 64Mi
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
+# -- ServiceMonitor settings for Prometheus Operator integration.
+serviceMonitor:
+  # -- Create a ServiceMonitor for the server metrics service.
+  enabled: true
+  # -- Scrape interval used by the ServiceMonitor.
+  interval: 1m
+  # -- Named service port scraped by the ServiceMonitor.
+  port: http-metrics

@@ -1,15 +1,16 @@
-{{- if .Values.serviceMonitor.enabled -}}
+{{- if and .Values.server.enabled .Values.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "iperf-exporter-server.fullname" . }}
+  name: {{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}
   labels:
     {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
     release: {{ $.Release.Name | quote }}
 spec:
   selector:
     matchLabels:
-      {{- include "iperf-exporter-server.selectorLabels" . | nindent 6 }}
+      {{- include "iperf-exporter-server.componentSelectorLabels" (dict "root" . "component" "server") | nindent 6 }}
   endpoints:
     - port: {{ .Values.serviceMonitor.port | quote }}
       interval: {{ .Values.serviceMonitor.interval }}

@@ -1,23 +1,18 @@
-from iperf_exporter.cli import parse_args, run_exporter
-from unittest import TestCase, mock
-from multiprocessing import Process
 import os
-import responses
-import requests
-from time import sleep
-import psutil
+from unittest import TestCase, mock
+
+from iperf_exporter.cli import (
+    main,
+    parse_args,
+    run_client,
+    run_exporter,
+    setup_client,
+    setup_exporter,
+    stream_client_output,
+)
 
 
 class TestCLI(TestCase):
-    def setUp(self):
-        responses.mock.start()
-        responses.add_passthru("http://127.0.0.1:9868/metrics")
-
-    def tearDown(self):
-        """Disable responses."""
-        responses.mock.stop()
-        responses.mock.reset()
-
     @mock.patch.dict(
         os.environ,
         {
@@ -29,20 +24,124 @@ class TestCLI(TestCase):
 
         assert args.iperf_exporter_bind_port == 9868
 
-    def test_run_exporter(self):
-        args = parse_args(["--iperf_exporter_mode", "server"])
-        p = Process(target=run_exporter, args=(args,))
-        try:
-            p.start()
-            sleep(2)
-            response = requests.get("http://127.0.0.1:9868/metrics")
-            self.assertEqual(200, response.status_code)
-        finally:
+    def test_setup_exporter_registers_collector_and_http_server(self):
+        args = parse_args(
+            ["--iperf_exporter_mode", "server", "--iperf_exporter_proto", "tcp"]
+        )
+        collector = mock.Mock()
+        collector_cls = mock.Mock(return_value=collector)
+        registry = mock.Mock()
+        http_server_factory = mock.Mock()
 
-            # ugly kill all because p.terminate() can't kill child subprocesses
-            # https://stackoverflow.com/questions/6549669/how-to-kill-process-and-child-processes-from-python
-            parent_pid = p.pid
-            parent = psutil.Process(parent_pid)
-            for child in parent.children(recursive=True):
-                child.kill()
-            parent.kill()
+        result = setup_exporter(
+            args,
+            collector_cls=collector_cls,
+            registry=registry,
+            http_server_factory=http_server_factory,
+        )
+
+        self.assertIs(result, collector)
+        collector_cls.assert_called_once_with(
+            port=5001,
+            proto="tcp",
+            len=1280,
+            metric_ttl=604800,
+            additional_params="",
+            context_client_bandwidth="",
+            context_client_additional_params="",
+            path_trace_ttl=300,
+            path_trace_max_hops=16,
+            path_trace_timeout=10,
+        )
+        registry.register.assert_called_once_with(collector)
+        http_server_factory.assert_called_once_with(9868)
+
+    def test_run_exporter_uses_idle_function(self):
+        args = parse_args(["--iperf_exporter_mode", "server"])
+        idle_fn = mock.Mock()
+
+        run_exporter(
+            args,
+            collector_cls=mock.Mock(return_value=mock.Mock()),
+            registry=mock.Mock(),
+            http_server_factory=mock.Mock(),
+            idle_fn=idle_fn,
+        )
+
+        idle_fn.assert_called_once_with()
+
+    def test_setup_client_runs_client(self):
+        args = parse_args(
+            ["--iperf_exporter_mode", "client", "--iperf_exporter_proto", "tcp"]
+        )
+        client = mock.Mock()
+        client_cls = mock.Mock(return_value=client)
+
+        result = setup_client(args, client_cls=client_cls)
+
+        self.assertIs(result, client)
+        client_cls.assert_called_once_with(
+            port=5001,
+            proto="tcp",
+            bandwidth="1M",
+            peer="127.0.0.1",
+            additional_params="",
+        )
+        client.run.assert_called_once_with()
+
+    def test_parse_args_additional_params(self):
+        args = parse_args(
+            [
+                "--iperf_exporter_server_additional_params=--histograms=100u,20",
+                "--iperf_exporter_client_additional_params=--trip-times",
+                "--iperf_exporter_context_client_bandwidth=100M",
+                "--iperf_exporter_context_client_additional_params=--trip-times",
+                "--iperf_exporter_path_trace_ttl=60",
+            ]
+        )
+
+        self.assertEqual(
+            args.iperf_exporter_server_additional_params, "--histograms=100u,20"
+        )
+        self.assertEqual(args.iperf_exporter_client_additional_params, "--trip-times")
+        self.assertEqual(args.iperf_exporter_context_client_bandwidth, "100M")
+        self.assertEqual(
+            args.iperf_exporter_context_client_additional_params, "--trip-times"
+        )
+        self.assertEqual(args.iperf_exporter_path_trace_ttl, 60)
+
+    def test_run_client_uses_output_loop(self):
+        args = parse_args(["--iperf_exporter_mode", "client"])
+        client = mock.Mock()
+        client_cls = mock.Mock(return_value=client)
+        output_loop_fn = mock.Mock()
+
+        run_client(args, client_cls=client_cls, output_loop_fn=output_loop_fn)
+
+        output_loop_fn.assert_called_once_with(client)
+
+    def test_stream_client_output_supervises_process(self):
+        client = mock.Mock()
+
+        def stop_after_first_iteration(_):
+            raise RuntimeError("stop-loop")
+
+        with self.assertRaisesRegex(RuntimeError, "stop-loop"):
+            stream_client_output(client, sleep_fn=stop_after_first_iteration)
+
+        client.ensure_running.assert_called_once_with()
+        client.read_output.assert_called_once_with()
+
+    @mock.patch("iperf_exporter.cli.run_exporter")
+    def test_main_dispatch_server(self, run_exporter_mock):
+        result = main(["--iperf_exporter_mode", "server"])
+
+        self.assertEqual(result, 0)
+        run_exporter_mock.assert_called_once()
+
+    @mock.patch("iperf_exporter.cli.run_client")
+    def test_main_dispatch_client(self, run_client_mock):
+        result = main(["--iperf_exporter_mode", "client"])
+
+        self.assertEqual(result, 0)
+        run_client_mock.assert_called_once()

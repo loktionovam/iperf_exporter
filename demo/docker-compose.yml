@@ -1,0 +1,202 @@
+services:
+  iperf-exporter-server-udp:
+    build:
+      context: ..
+      args:
+        MODE: server
+        VERSION: 0.0.0+demo
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-server-udp
+    environment:
+      IPERF_EXPORTER_MODE: server
+      IPERF_EXPORTER_PORT: "5001"
+      IPERF_EXPORTER_PROTO: udp
+      IPERF_EXPORTER_LEN: "1280"
+      IPERF_EXPORTER_BIND_PORT: "9868"
+      IPERF_EXPORTER_CONTEXT_CLIENT_BANDWIDTH: "1M"
+      IPERF_EXPORTER_CONTEXT_CLIENT_ADDITIONAL_PARAMS: ""
+    ports:
+      - "5001:5001/udp"
+      - "9868:9868"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.2
+
+  iperf-exporter-client-udp:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-client-udp
+    depends_on:
+      - iperf-exporter-server-udp
+    environment:
+      IPERF_EXPORTER_MODE: client
+      IPERF_EXPORTER_PORT: "5001"
+      IPERF_EXPORTER_PROTO: udp
+      IPERF_EXPORTER_CLIENT_BANDWIDTH: "1M"
+      IPERF_EXPORTER_CLIENT_PEER: iperf-exporter-server-udp
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.4
+
+  iperf-exporter-server-udp-2:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-server-udp-2
+    depends_on:
+      - iperf-exporter-server-udp
+    environment:
+      IPERF_EXPORTER_MODE: server
+      IPERF_EXPORTER_PORT: "5003"
+      IPERF_EXPORTER_PROTO: udp
+      IPERF_EXPORTER_LEN: "1280"
+      IPERF_EXPORTER_BIND_PORT: "9868"
+      IPERF_EXPORTER_CONTEXT_CLIENT_BANDWIDTH: "2M"
+      IPERF_EXPORTER_CONTEXT_CLIENT_ADDITIONAL_PARAMS: ""
+    ports:
+      - "5003:5003/udp"
+      - "9870:9868"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.3
+
+  iperf-exporter-client-udp-2:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-client-udp-2
+    depends_on:
+      - iperf-exporter-server-udp-2
+    environment:
+      IPERF_EXPORTER_MODE: client
+      IPERF_EXPORTER_PORT: "5003"
+      IPERF_EXPORTER_PROTO: udp
+      IPERF_EXPORTER_CLIENT_BANDWIDTH: "2M"
+      IPERF_EXPORTER_CLIENT_PEER: iperf-exporter-server-udp-2
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.8
+
+  iperf-exporter-server-tcp:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-server-tcp
+    depends_on:
+      - iperf-exporter-server-udp
+    environment:
+      IPERF_EXPORTER_MODE: server
+      IPERF_EXPORTER_PORT: "5002"
+      IPERF_EXPORTER_PROTO: tcp
+      IPERF_EXPORTER_LEN: "8192"
+      IPERF_EXPORTER_BIND_PORT: "9868"
+      IPERF_EXPORTER_CONTEXT_CLIENT_BANDWIDTH: "1M"
+      IPERF_EXPORTER_CONTEXT_CLIENT_ADDITIONAL_PARAMS: "--trip-times"
+      IPERF_EXPORTER_SERVER_ADDITIONAL_PARAMS: "--histograms=100u,20"
+    ports:
+      - "5002:5002/tcp"
+      - "9869:9868"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.6
+
+  iperf-exporter-client-tcp:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-client-tcp
+    depends_on:
+      - iperf-exporter-server-tcp
+    environment:
+      IPERF_EXPORTER_MODE: client
+      IPERF_EXPORTER_PORT: "5002"
+      IPERF_EXPORTER_PROTO: tcp
+      IPERF_EXPORTER_CLIENT_BANDWIDTH: "1M"
+      IPERF_EXPORTER_CLIENT_PEER: iperf-exporter-server-tcp
+      IPERF_EXPORTER_CLIENT_ADDITIONAL_PARAMS: "--trip-times"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.10
+
+  iperf-exporter-server-tcp-2:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-server-tcp-2
+    depends_on:
+      - iperf-exporter-server-tcp
+    environment:
+      IPERF_EXPORTER_MODE: server
+      IPERF_EXPORTER_PORT: "5004"
+      IPERF_EXPORTER_PROTO: tcp
+      IPERF_EXPORTER_LEN: "8192"
+      IPERF_EXPORTER_BIND_PORT: "9868"
+      IPERF_EXPORTER_CONTEXT_CLIENT_BANDWIDTH: "3M"
+      IPERF_EXPORTER_CONTEXT_CLIENT_ADDITIONAL_PARAMS: "--trip-times"
+      IPERF_EXPORTER_SERVER_ADDITIONAL_PARAMS: "--histograms=100u,20"
+    ports:
+      - "5004:5004/tcp"
+      - "9871:9868"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.9
+
+  iperf-exporter-client-tcp-2:
+    image: iperf_exporter:demo
+    pull_policy: never
+    container_name: iperf-exporter-client-tcp-2
+    depends_on:
+      - iperf-exporter-server-tcp-2
+    environment:
+      IPERF_EXPORTER_MODE: client
+      IPERF_EXPORTER_PORT: "5004"
+      IPERF_EXPORTER_PROTO: tcp
+      IPERF_EXPORTER_CLIENT_BANDWIDTH: "3M"
+      IPERF_EXPORTER_CLIENT_PEER: iperf-exporter-server-tcp-2
+      IPERF_EXPORTER_CLIENT_ADDITIONAL_PARAMS: "--trip-times"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.11
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: iperf-exporter-prometheus
+    depends_on:
+      - iperf-exporter-server-udp
+      - iperf-exporter-server-udp-2
+      - iperf-exporter-server-tcp
+      - iperf-exporter-server-tcp-2
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.20
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: iperf-exporter-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/iperf-exporter-overview.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      demo-net:
+        ipv4_address: 172.31.240.21
+
+networks:
+  demo-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.240.0/24

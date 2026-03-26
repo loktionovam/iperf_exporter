@@ -2,18 +2,20 @@ FROM python:3-alpine AS base
 
 # Manual upgrade vulnerable packages
 # https://github.com/docker-library/python/issues/680
-RUN apk upgrade expat expat-dev libcrypto1.1 libssl1.1
+RUN apk update \
+    && apk upgrade --no-cache expat expat-dev libcrypto3 libssl3
 
-FROM base as iperf_exporter
+FROM base AS iperf_exporter
 
 RUN apk update \
-    && apk add gcc libc-dev iperf \
+    && apk add --no-cache gcc libc-dev iperf iproute2 iputils \
     && adduser -H -S -D -u 1000 iperf_exporter
 
 COPY . /setup/
 
 RUN cd /setup \
-    && python setup.py install \
+    && python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && python -m pip install --no-cache-dir . \
     && find /usr/local/lib -name "*.pyc" -delete
 
 ARG VERSION=dev
@@ -28,7 +30,7 @@ ENV DEBUG=0 \
     IPERF_EXPORTER_PROTO=udp \
     IPERF_EXPORTER_LEN=1280 \
     IPERF_EXPORTER_BIND_PORT=9868 \
-    IPERF_EXPORTER_METRIC_TTL=604800 \
+    IPERF_EXPORTER_METRIC_TTL=3600 \
     IPERF_EXPORTER_CLIENT_BANDWIDTH=1M \
     IPERF_EXPORTER_CLIENT_PEER=127.0.0.1
 
@@ -39,4 +41,4 @@ COPY --from=aquasec/trivy:latest /usr/local/bin/trivy /usr/local/bin/trivy
 USER root
 RUN trivy rootfs --exit-code 1 --no-progress --skip-files /usr/local/bin/trivy /
 
-FROM iperf_exporter as main
+FROM iperf_exporter AS main

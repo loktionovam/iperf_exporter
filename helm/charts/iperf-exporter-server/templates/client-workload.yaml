@@ -1,0 +1,73 @@
+{{- if .Values.client.enabled }}
+{{- $controller := .Values.client.controller | default "DaemonSet" }}
+{{- if and (ne $controller "DaemonSet") (ne $controller "Deployment") }}
+{{- fail "client.controller must be Deployment or DaemonSet" }}
+{{- end }}
+apiVersion: apps/v1
+kind: {{ $controller }}
+metadata:
+  name: {{ include "iperf-exporter-server.componentName" (dict "root" . "component" "client") }}
+  labels:
+    {{- include "iperf-exporter-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: client
+spec:
+  {{- if eq $controller "Deployment" }}
+  replicas: {{ .Values.client.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "iperf-exporter-server.componentSelectorLabels" (dict "root" . "component" "client") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.client.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "iperf-exporter-server.componentSelectorLabels" (dict "root" . "component" "client") | nindent 8 }}
+        {{- with .Values.client.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "iperf-exporter-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: client
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "iperf_exporter"]
+          env:
+            - name: IPERF_EXPORTER_MODE
+              value: "client"
+            - name: IPERF_EXPORTER_PORT
+              value: {{ .Values.client.config.port | quote }}
+            - name: IPERF_EXPORTER_PROTO
+              value: {{ .Values.client.config.proto | quote }}
+            - name: IPERF_EXPORTER_CLIENT_BANDWIDTH
+              value: {{ .Values.client.config.bandwidth | quote }}
+            - name: IPERF_EXPORTER_CLIENT_PEER
+              value: {{ include "iperf-exporter-server.clientPeer" . | quote }}
+            - name: IPERF_EXPORTER_CLIENT_ADDITIONAL_PARAMS
+              value: {{ .Values.client.config.additionalParams | quote }}
+          resources:
+            {{- toYaml .Values.client.resources | nindent 12 }}
+      {{- with .Values.client.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.client.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.client.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

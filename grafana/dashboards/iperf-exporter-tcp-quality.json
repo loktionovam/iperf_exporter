@@ -1,0 +1,1333 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "heatmap",
+      "name": "Heatmap",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "TCP throughput, latency, histogram and socket-quality metrics exported by iperf_exporter. The dashboard is split into collapsible sections so you can hide summary, context, latency or socket details independently.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 101,
+      "panels": [],
+      "title": "Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Number of TCP stream series currently exported for the selected client->server pair filter.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "count(iperf_exporter_tcp_bandwidth{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"})",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Active TCP Streams",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Health of the supervised TCP iperf server process. Value 1 means the exporter currently sees the child iperf process alive.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Down"
+                },
+                "1": {
+                  "text": "Up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max(iperf_exporter_iperf_process_up{mode=\"server\",proto=\"tcp\"})",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Exporter Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Total number of automatic restarts performed by the exporter for the supervised TCP iperf process.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max(iperf_exporter_iperf_process_restarts_total{mode=\"server\",proto=\"tcp\"})",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Process Restarts",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Measurement Context",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "One key/value table that explains under what conditions the selected TCP pair/session was measured. When Client->Server Pair is set to All, use the Session variable to narrow the table to one client port.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 20,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Parameter"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Server Port\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"local_port\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Peer Version\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"peer_version\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Trip-Times Enabled\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"trip_times_enabled\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Report Interval (s)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"report_interval_seconds\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", client_bandwidth_limit!=\"\"}, \"parameter\", \"Client Bandwidth Limit\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"client_bandwidth_limit\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", client_additional_params!=\"\"}, \"parameter\", \"Client Extra Params\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"client_additional_params\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Server Len (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_len_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_window_bytes!=\"\"}, \"parameter\", \"Server Window (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_window_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_read_buffer_bytes!=\"\"}, \"parameter\", \"Read Buffer (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_read_buffer_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_read_dist_bin_width_bytes!=\"\"}, \"parameter\", \"Read Dist Bin (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_read_dist_bin_width_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_histogram_bin_width_ms!=\"\"}, \"parameter\", \"Histogram Bin (ms)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_histogram_bin_width_ms\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_histogram_bin_count!=\"\"}, \"parameter\", \"Histogram Bins\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_histogram_bin_count\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", initial_cwnd_segments!=\"\"}, \"parameter\", \"Initial CWND\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"initial_cwnd_segments\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", initial_mss_bytes!=\"\"}, \"parameter\", \"Initial MSS (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"initial_mss_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", initial_rtt_microseconds!=\"\"}, \"parameter\", \"Initial RTT (us)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"initial_rtt_microseconds\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_congestion_control_default!=\"\"}, \"parameter\", \"Server CC Default\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_congestion_control_default\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_additional_params!=\"\"}, \"parameter\", \"Server Extra Params\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_additional_params\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", congestion_algorithm!=\"\"}, \"parameter\", \"Congestion Control\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"congestion_algorithm\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", socket_state!=\"\"}, \"parameter\", \"Socket State\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"socket_state\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", mss_bytes!=\"\"}, \"parameter\", \"MSS (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"mss_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", pmtu_bytes!=\"\"}, \"parameter\", \"PMTU (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"pmtu_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", rcvmss_bytes!=\"\"}, \"parameter\", \"Recv MSS (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"rcvmss_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", advmss_bytes!=\"\"}, \"parameter\", \"Advertised MSS (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"advmss_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", send_wscale!=\"\"}, \"parameter\", \"Send WScale\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"send_wscale\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_tcp_socket_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", rcv_wscale!=\"\"}, \"parameter\", \"Recv WScale\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"rcv_wscale\", \"(.*)\"))",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Measurement Context",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "connection_pair": 0,
+              "peer_port": 1,
+              "parameter": 2,
+              "setting_value": 3
+            },
+            "renameByName": {
+              "connection_pair": "Client->Server Pair",
+              "peer_port": "Client Port",
+              "parameter": "Parameter",
+              "setting_value": "Value"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Hop-by-hop route observed by `tracepath` from the exporter/server namespace toward the peer/client address for the selected pair/session. When Client->Server Pair is set to All, use the Session variable to narrow the table to one client port.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "id": 120,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Hop"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "max by (connection_pair, peer_port, hop_index, hop_address, hop_summary) (iperf_exporter_tcp_path_trace_hop_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Path Trace",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "connection_pair": 0,
+              "peer_port": 1,
+              "hop_index": 2,
+              "hop_address": 3,
+              "hop_summary": 4
+            },
+            "renameByName": {
+              "connection_pair": "Client->Server Pair",
+              "peer_port": "Client Port",
+              "hop_address": "Hop Address",
+              "hop_index": "Hop",
+              "hop_summary": "Details"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "id": 103,
+      "panels": [],
+      "title": "Throughput and Read Behavior",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "TCP bitrate reported by iperf for each active client->server stream. Unit: bits per second.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 21
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_bandwidth{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Bandwidth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "TCP payload transferred during each reporting interval. Unit: bytes per interval.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 21
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_transfer{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Transfer per Interval",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Number of TCP read operations performed by the server during the interval. Use it together with transfer to understand how much payload arrives per read cycle.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 21
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_reads{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Reads",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Derived indicator: average number of bytes received per read call during the interval. It helps spot fragmentation or many small reads when throughput stays constant.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_transfer{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"} / clamp_min(iperf_exporter_tcp_reads{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, 1)",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Bytes per Read",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Exporter-wide history of automatic restarts for the supervised TCP iperf process. A rising counter indicates the watchdog had to bring iperf back.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(iperf_exporter_iperf_process_restarts_total{mode=\"server\",proto=\"tcp\"})",
+          "legendFormat": "tcp restarts",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Watchdog Restarts",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "id": 104,
+      "panels": [],
+      "title": "Latency and Histograms",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Average TCP write-to-read latency reported by iperf2 trip-times output. This is the main TCP latency quality signal exposed by the server-side exporter.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 38
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_burst_latency_avg{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Burst Latency Avg",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Minimum, maximum and standard deviation of TCP write-to-read latency from iperf2 trip-times output. Use it to spot jitter and tail latency even when throughput looks stable.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 38
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_burst_latency_min{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "min / {{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        },
+        {
+          "expr": "iperf_exporter_tcp_burst_latency_max{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "max / {{connection_pair}} / {{peer_port}}",
+          "refId": "B"
+        },
+        {
+          "expr": "iperf_exporter_tcp_burst_latency_stdev{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "stdev / {{connection_pair}} / {{peer_port}}",
+          "refId": "C"
+        }
+      ],
+      "title": "TCP Burst Latency Spread",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Bytes that iperf2 reports as still in progress at the receiver. Larger values can indicate buffering or receive-side backlog while the test is running.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 38
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_inprogress_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP In-progress Bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "TCP net power from iperf2 enhanced trip-times output. It is an iperf2-specific composite indicator that mixes throughput and latency characteristics.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 46
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_netpwr{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Net Power",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Number of samples in the selected TCP latency histogram snapshot. Use the histogram filter to inspect the different iperf2 histogram snapshots separately.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 46
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_latency_histogram_sample_count{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\",histogram_name=~\"$histogram_name\"}",
+          "legendFormat": "{{connection_pair}} / {{histogram_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Histogram Sample Count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Read counts in the largest Reads=Dist bucket. A high value means the receiver frequently reads nearly full-sized chunks instead of many tiny fragments.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 46
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_read_bin_7{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Full-size Reads",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "TCP latency histogram over time exported from iperf2. The Y axis is the bucket upper boundary in milliseconds. The panel uses Prometheus-style cumulative histogram buckets with le labels, excludes the synthetic +Inf bucket, and applies last_over_time over the dashboard interval so sparse iperf snapshots remain visible between scrapes.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "id": 15,
+      "links": [],
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "cellValues": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "color": {
+          "mode": "scheme",
+          "reverse": false,
+          "scheme": "Spectral",
+          "steps": 128
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "le",
+          "value": "Samples"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": true,
+          "yHistogram": true
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "decimals": 1,
+          "reverse": false,
+          "unit": "ms"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (le) (last_over_time(iperf_exporter_tcp_latency_histogram_bucket{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\",histogram_name=~\"$histogram_name\",le!=\"+Inf\"}[$__interval]))",
+          "format": "heatmap",
+          "instant": false,
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Latency Histogram Heatmap",
+      "type": "heatmap"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      },
+      "id": 105,
+      "panels": [],
+      "title": "Socket Internals",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Server-side TCP latency and retransmission timers from ss -tin. RTT, RTT variation and minimum RTT are in milliseconds; RTO is the current retransmission timeout.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 65
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_socket_rtt_milliseconds{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "RTT / {{connection_pair}}",
+          "refId": "A"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_rttvar_milliseconds{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "RTTVar / {{connection_pair}}",
+          "refId": "B"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_min_rtt_milliseconds{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "Min RTT / {{connection_pair}}",
+          "refId": "C"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_rto_milliseconds{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "RTO / {{connection_pair}}",
+          "refId": "D"
+        }
+      ],
+      "title": "TCP Socket RTT and RTO",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Server-side TCP throughput estimates from ss -tin. Send rate is the current sender estimate, delivery rate is the delivered-data rate, and pacing rate is the kernel pacing ceiling.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 65
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_socket_send_rate_bps{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "Send / {{connection_pair}}",
+          "refId": "A"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_delivery_rate_bps{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "Delivery / {{connection_pair}}",
+          "refId": "B"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_pacing_rate_bps{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "Pacing / {{connection_pair}}",
+          "refId": "C"
+        }
+      ],
+      "title": "TCP Socket Rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Server-side TCP kernel queue depth and advertised windows from ss -tin. Queue metrics show bytes waiting in the local kernel; window metrics show current sender/receiver windows.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 73
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_socket_recv_queue_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "Recv-Q / {{connection_pair}}",
+          "refId": "A"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_send_queue_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "Send-Q / {{connection_pair}}",
+          "refId": "B"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_snd_wnd_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "snd_wnd / {{connection_pair}}",
+          "refId": "C"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_rcv_wnd_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "rcv_wnd / {{connection_pair}}",
+          "refId": "D"
+        }
+      ],
+      "title": "TCP Socket Queues and Windows",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Server-side TCP congestion indicators from ss -tin. CWND is measured in segments, window scaling factors are unitless, and app_limited is a 0/1 flag that indicates the sender is limited by the application rather than the network path.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 73
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "iperf_exporter_tcp_socket_cwnd_segments{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "CWND / {{connection_pair}}",
+          "refId": "A"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_send_wscale{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "snd wscale / {{connection_pair}}",
+          "refId": "B"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_rcv_wscale{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "rcv wscale / {{connection_pair}}",
+          "refId": "C"
+        },
+        {
+          "expr": "iperf_exporter_tcp_socket_app_limited{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "legendFormat": "app_limited / {{connection_pair}}",
+          "refId": "D"
+        }
+      ],
+      "title": "TCP Congestion and Scaling",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "iperf",
+    "tcp",
+    "network"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_tcp_transfer{connection_pair!=\"\"}, connection_pair)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Client->Server Pair",
+        "multi": false,
+        "name": "connection_pair",
+        "options": [],
+        "query": "label_values(iperf_exporter_tcp_transfer{connection_pair!=\"\"}, connection_pair)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\"}, peer_port)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Session",
+        "multi": false,
+        "name": "session_port",
+        "options": [],
+        "query": "label_values(iperf_exporter_tcp_test_info{connection_pair=~\"$connection_pair\"}, peer_port)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_tcp_latency_histogram_sample_count{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, histogram_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "TCP Histogram",
+        "multi": false,
+        "name": "histogram_name",
+        "options": [],
+        "query": "label_values(iperf_exporter_tcp_latency_histogram_sample_count{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, histogram_name)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "IPerf Exporter TCP Quality",
+  "uid": "iperf-exporter-tcp-quality",
+  "version": 12,
+  "weekStart": ""
+}

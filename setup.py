@@ -10,10 +10,23 @@ if os.path.isfile(requirements):
     with open(requirements) as f:
         install_requires = f.read().splitlines()
 
+
+def normalize_version(raw_version: str) -> str:
+    version = raw_version.strip().lstrip("v")
+    if version in ("", "dev"):
+        return "0.0.0.dev0"
+
+    parts = version.split("-")
+    if len(parts) >= 3 and parts[1].isdigit():
+        local = ".".join(parts[2:])
+        return f"{parts[0]}.post{parts[1]}+{local}"
+
+    return version.replace("-", ".")
+
 setup(
   name="iperf_exporter",
   packages=find_packages(),
-  version=os.environ.get("VERSION", "dev"),
+  version=normalize_version(os.environ.get("VERSION", "0.0.0.dev0")),
   license="GPLv3+",
   description="iperf metrics exporter",
   long_description=open('README.md', 'r').read(),

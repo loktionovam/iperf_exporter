@@ -9,6 +9,37 @@
 
 {{ template "chart.sourcesSection" . }}
 
+## What Changed
+
+- `server` and `client` are configured independently.
+- Each component has its own `nodeSelector`, `affinity`, `tolerations`, `resources`, `podAnnotations` and `podLabels`.
+- `client.controller` can be either `DaemonSet` or `Deployment`.
+- TCP and UDP are supported through `server.config.proto` and `client.config.proto`.
+- The optional client can target the in-release server automatically or any external peer via `client.peer`.
+
+## Example
+
+Deploy the server on infra nodes and the client on worker nodes:
+
+```yaml
+server:
+  enabled: true
+  config:
+    proto: tcp
+    additionalParams: "--histograms=100u,20"
+  nodeSelector:
+    node-role.kubernetes.io/infra: "true"
+
+client:
+  enabled: true
+  controller: DaemonSet
+  config:
+    proto: tcp
+    bandwidth: 1M
+    additionalParams: "--trip-times"
+  nodeSelector:
+    node-role.kubernetes.io/worker: "true"
+```
 
 {{ template "chart.requirementsSection" . }}
 
