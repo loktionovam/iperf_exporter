@@ -52,7 +52,7 @@ class TestIPerfServer(TestCase):
         return process
 
     def test_iperf_server_new_udp_client(self):
-        server = IPerfServer("5001", "udp", "1200", 604800)
+        server = IPerfServer("5001", "udp", "1200", 1, 604800)
         server._process = self.new_process("tests/apps/data/new_client.log")
 
         server.read_output()
@@ -82,7 +82,7 @@ class TestIPerfServer(TestCase):
         self.assertEqual(server.runtime_settings.udp_buffer_bytes, "212992")
 
     def test_iperf_server_udp_triptime_variant_metrics(self):
-        server = IPerfServer("5001", "udp", "1200", 604800)
+        server = IPerfServer("5001", "udp", "1200", 1, 604800)
         server._raw_stdout = (
             "[  3] local 127.0.0.1%eth0 port 5001 connected with 127.0.0.2 port 52370"
         )
@@ -102,7 +102,7 @@ class TestIPerfServer(TestCase):
         self.assertEqual(getattr(server.output["3"], "netpwr"), "2.894221")
 
     def test_iperf_server_new_tcp_client(self):
-        server = IPerfServer("5001", "tcp", "8192", 604800)
+        server = IPerfServer("5001", "tcp", "8192", 1, 604800)
         server._process = self.new_process("tests/apps/data/new_client_tcp.log")
 
         server.read_output()
@@ -128,7 +128,7 @@ class TestIPerfServer(TestCase):
         self.assertEqual(server.runtime_settings.congestion_control_default, "cubic")
 
     def test_iperf_server_tcp_trip_times_metrics(self):
-        server = IPerfServer("6011", "tcp", "8192", 604800)
+        server = IPerfServer("6011", "tcp", "8192", 1, 604800)
         server._process = self.new_process(
             "tests/apps/data/new_client_tcp_trip_times.log"
         )
@@ -174,7 +174,7 @@ class TestIPerfServer(TestCase):
         self.assertEqual(server.runtime_settings.histogram_bin_count, "20")
 
     def test_iperf_server_ignores_suppressed_udp_line_without_resetting_metrics(self):
-        server = IPerfServer("5001", "udp", "1200", 604800)
+        server = IPerfServer("5001", "udp", "1200", 1, 604800)
         server._process = self.new_process("tests/apps/data/new_client.log")
         server.read_output()
 
@@ -197,6 +197,7 @@ class TestIPerfServer(TestCase):
                 "5001",
                 "udp",
                 "1200",
+                1,
                 3,
                 cleanup_startup_delay=0,
                 cleanup_interval=0.05,
@@ -222,6 +223,7 @@ class TestIPerfServer(TestCase):
                 "5001",
                 "udp",
                 "1200",
+                1,
                 3,
                 cleanup_startup_delay=0,
                 cleanup_interval=0.05,
@@ -247,6 +249,7 @@ class TestIPerfServer(TestCase):
                 "5001",
                 "udp",
                 "1200",
+                1,
                 5,
                 cleanup_startup_delay=0,
                 cleanup_interval=0.05,
@@ -277,6 +280,7 @@ class TestIPerfServer(TestCase):
                 "6011",
                 "tcp",
                 "8192",
+                1,
                 2,
                 cleanup_startup_delay=0,
                 cleanup_interval=0.05,
@@ -308,6 +312,7 @@ class TestIPerfServer(TestCase):
                 "5001",
                 "udp",
                 "1200",
+                1,
                 3,
                 process_factory=lambda *args, **kwargs: processes.pop(0),
                 cleanup_startup_delay=0,

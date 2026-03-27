@@ -1,0 +1,24 @@
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: LinkMeasurement
+metadata:
+  name: tcp-periodic-demo
+  namespace: iperf-exporter-demo
+spec:
+  profileRef: tcp-quality-periodic
+  source:
+    cluster: local
+    nodeName: iperf-demo-worker
+  destination:
+    cluster: local
+    nodeName: iperf-demo-worker2
+  directions:
+    - sourceToDestination
+    - destinationToSource
+  networkModes:
+    - host
+    - pod
+    - service
+  execution:
+    mode: periodicProbe
+    every: 5m
+    durationSeconds: 180

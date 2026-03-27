@@ -76,7 +76,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of UDP stream series currently exported for the selected client->server pair filter.",
+      "description": "Number of active UDP operator sessions for the selected filters when session labels are present; falls back to raw stream count outside operator-managed environments.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -117,7 +117,7 @@
       },
       "targets": [
         {
-          "expr": "count(iperf_exporter_udp_bandwidth{connection_pair=~\"$connection_pair\"})",
+          "expr": "((count(count by (session_id) (iperf_exporter_udp_bandwidth{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", session_id!=\"\"})) ) or vector(0)) + (((count(count by (connection_pair, peer_port, peer_id) (iperf_exporter_udp_bandwidth{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", session_id=\"\"})) )) or vector(0))",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
@@ -131,7 +131,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of TCP stream series currently exported for the selected client->server pair filter.",
+      "description": "Number of active TCP operator sessions for the selected filters when session labels are present; falls back to raw stream count outside operator-managed environments.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -172,7 +172,7 @@
       },
       "targets": [
         {
-          "expr": "count(iperf_exporter_tcp_bandwidth{connection_pair=~\"$connection_pair\"})",
+          "expr": "((count(count by (session_id) (iperf_exporter_tcp_bandwidth{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", session_id!=\"\"})) ) or vector(0)) + (((count(count by (connection_pair, peer_port, peer_id) (iperf_exporter_tcp_bandwidth{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", session_id=\"\"})) )) or vector(0))",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
@@ -246,7 +246,7 @@
       },
       "targets": [
         {
-          "expr": "max(iperf_exporter_iperf_process_up{mode=\"server\",proto=\"udp\"})",
+          "expr": "max(iperf_exporter_iperf_process_up{mode=\"server\",proto=\"udp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"})",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
@@ -320,7 +320,7 @@
       },
       "targets": [
         {
-          "expr": "max(iperf_exporter_iperf_process_up{mode=\"server\",proto=\"tcp\"})",
+          "expr": "max(iperf_exporter_iperf_process_up{mode=\"server\",proto=\"tcp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"})",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
@@ -374,7 +374,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_bandwidth{connection_pair=~\"$connection_pair\"}",
+          "expr": "iperf_exporter_udp_bandwidth{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -414,7 +414,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_tcp_bandwidth{connection_pair=~\"$connection_pair\"}",
+          "expr": "iperf_exporter_tcp_bandwidth{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -467,7 +467,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_transfer{connection_pair=~\"$connection_pair\"}",
+          "expr": "iperf_exporter_udp_transfer{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -507,7 +507,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_tcp_reads{connection_pair=~\"$connection_pair\"}",
+          "expr": "iperf_exporter_tcp_reads{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -537,14 +537,239 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "query_result(count by (connection_pair) (iperf_exporter_udp_transfer{connection_pair!=\"\"} or iperf_exporter_tcp_transfer{connection_pair!=\"\"}))",
+        "definition": "query_result(count by (measurement_id) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Measurement",
+        "multi": false,
+        "name": "measurement_id",
+        "options": [],
+        "query": "query_result(count by (measurement_id) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id!=\"\"})))",
+        "refresh": 2,
+        "regex": "/measurement_id=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (profile_ref) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Profile",
+        "multi": false,
+        "name": "profile_ref",
+        "options": [],
+        "query": "query_result(count by (profile_ref) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref!=\"\"})))",
+        "refresh": 2,
+        "regex": "/profile_ref=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (execution_mode) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Execution Mode",
+        "multi": false,
+        "name": "execution_mode",
+        "options": [],
+        "query": "query_result(count by (execution_mode) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode!=\"\"})))",
+        "refresh": 2,
+        "regex": "/execution_mode=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (direction) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Direction",
+        "multi": false,
+        "name": "direction",
+        "options": [],
+        "query": "query_result(count by (direction) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction!=\"\"})))",
+        "refresh": 2,
+        "regex": "/direction=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (src_cluster) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Source Cluster",
+        "multi": false,
+        "name": "src_cluster",
+        "options": [],
+        "query": "query_result(count by (src_cluster) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster!=\"\"})))",
+        "refresh": 2,
+        "regex": "/src_cluster=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (src_node) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Source Node",
+        "multi": false,
+        "name": "src_node",
+        "options": [],
+        "query": "query_result(count by (src_node) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node!=\"\"})))",
+        "refresh": 2,
+        "regex": "/src_node=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (dst_cluster) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Destination Cluster",
+        "multi": false,
+        "name": "dst_cluster",
+        "options": [],
+        "query": "query_result(count by (dst_cluster) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster!=\"\"})))",
+        "refresh": 2,
+        "regex": "/dst_cluster=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (dst_node) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Destination Node",
+        "multi": false,
+        "name": "dst_node",
+        "options": [],
+        "query": "query_result(count by (dst_node) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node!=\"\"})))",
+        "refresh": 2,
+        "regex": "/dst_node=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (network_mode) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode!=\"\"})))",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Network Mode",
+        "multi": false,
+        "name": "network_mode",
+        "options": [],
+        "query": "query_result(count by (network_mode) ((iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode!=\"\"}) or (iperf_exporter_iperf_process_up{mode=\"server\", proto=\"tcp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode!=\"\"})))",
+        "refresh": 2,
+        "regex": "/network_mode=\"([^\"]+)\"/",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "query_result(count by (connection_pair) ((iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair!=\"\"}) or (iperf_exporter_tcp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair!=\"\"})))",
         "hide": 0,
         "includeAll": true,
         "label": "Client->Server Pair",
         "multi": false,
         "name": "connection_pair",
         "options": [],
-        "query": "query_result(count by (connection_pair) (iperf_exporter_udp_transfer{connection_pair!=\"\"} or iperf_exporter_tcp_transfer{connection_pair!=\"\"}))",
+        "query": "query_result(count by (connection_pair) ((iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair!=\"\"}) or (iperf_exporter_tcp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair!=\"\"})))",
         "refresh": 2,
         "regex": "/connection_pair=\"([^\"]+)\"/",
         "skipUrlSync": false,
@@ -561,6 +786,6 @@
   "timezone": "",
   "title": "IPerf Exporter Overview",
   "uid": "iperf-exporter-overview",
-  "version": 4,
+  "version": 6,
   "weekStart": ""
 }

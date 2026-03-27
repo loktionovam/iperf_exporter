@@ -5,34 +5,73 @@ from iperf_exporter.iperf import IPerfClient, IPerfServer
 
 class TestIPerfCommands(TestCase):
     def test_udp_commands_include_udp_flag(self):
-        client = IPerfClient(port=5001, proto="udp", bandwidth="1M", peer="127.0.0.1")
-        server = IPerfServer(port=5001, proto="udp", len=1280, metric_ttl=60)
+        client = IPerfClient(
+            port=5001,
+            proto="udp",
+            interval=1,
+            bandwidth="1M",
+            duration=315360000,
+            peer="127.0.0.1",
+        )
+        server = IPerfServer(
+            port=5001, proto="udp", len=1280, interval=1, metric_ttl=60
+        )
 
         self.assertIn("--udp", client.command)
         self.assertIn("--udp", server.command)
         self.assertIn("--bandwidth", client.command)
 
     def test_udp_zero_bandwidth_is_kept(self):
-        client = IPerfClient(port=5001, proto="udp", bandwidth="0", peer="127.0.0.1")
+        client = IPerfClient(
+            port=5001,
+            proto="udp",
+            interval=1,
+            bandwidth="0",
+            duration=315360000,
+            peer="127.0.0.1",
+        )
 
         self.assertIn("--bandwidth", client.command)
         self.assertIn("0", client.command)
 
     def test_tcp_commands_do_not_include_fake_tcp_flag(self):
-        client = IPerfClient(port=5001, proto="tcp", bandwidth="1M", peer="127.0.0.1")
-        server = IPerfServer(port=5001, proto="tcp", len=1280, metric_ttl=60)
+        client = IPerfClient(
+            port=5001,
+            proto="tcp",
+            interval=1,
+            bandwidth="1M",
+            duration=315360000,
+            peer="127.0.0.1",
+        )
+        server = IPerfServer(
+            port=5001, proto="tcp", len=1280, interval=1, metric_ttl=60
+        )
 
         self.assertNotIn("--tcp", client.command)
         self.assertNotIn("--tcp", server.command)
 
     def test_tcp_positive_bandwidth_is_applied(self):
-        client = IPerfClient(port=5001, proto="tcp", bandwidth="100M", peer="127.0.0.1")
+        client = IPerfClient(
+            port=5001,
+            proto="tcp",
+            interval=1,
+            bandwidth="100M",
+            duration=315360000,
+            peer="127.0.0.1",
+        )
 
         self.assertIn("--bandwidth", client.command)
         self.assertIn("100M", client.command)
 
     def test_tcp_zero_bandwidth_is_omitted(self):
-        client = IPerfClient(port=5001, proto="tcp", bandwidth="0", peer="127.0.0.1")
+        client = IPerfClient(
+            port=5001,
+            proto="tcp",
+            interval=1,
+            bandwidth="0",
+            duration=315360000,
+            peer="127.0.0.1",
+        )
 
         self.assertNotIn("--bandwidth", client.command)
 
@@ -40,7 +79,9 @@ class TestIPerfCommands(TestCase):
         client = IPerfClient(
             port=5001,
             proto="tcp",
+            interval=1,
             bandwidth="1M",
+            duration=315360000,
             peer="127.0.0.1",
             additional_params="--trip-times",
         )
@@ -48,6 +89,7 @@ class TestIPerfCommands(TestCase):
             port=5001,
             proto="tcp",
             len=8192,
+            interval=1,
             metric_ttl=60,
             additional_params="--histograms=100u,20",
         )
@@ -76,7 +118,9 @@ class TestIPerfCommands(TestCase):
         client = IPerfClient(
             port=5001,
             proto="tcp",
+            interval=1,
             bandwidth="1M",
+            duration=315360000,
             peer="127.0.0.1",
             process_factory=lambda *args, **kwargs: processes.pop(0),
         )
@@ -87,3 +131,22 @@ class TestIPerfCommands(TestCase):
         self.assertEqual(client.restart_count, 1)
         self.assertEqual(client.last_exit_code, 1)
         self.assertTrue(client.is_running())
+
+    def test_custom_interval_and_duration_are_applied(self):
+        client = IPerfClient(
+            port=5001,
+            proto="tcp",
+            interval=3,
+            bandwidth="1M",
+            duration=45,
+            peer="127.0.0.1",
+        )
+        server = IPerfServer(
+            port=5001, proto="tcp", len=8192, interval=3, metric_ttl=60
+        )
+
+        self.assertIn("--interval", client.command)
+        self.assertIn("3", client.command)
+        self.assertIn("45", client.command)
+        self.assertIn("--interval", server.command)
+        self.assertIn("3", server.command)

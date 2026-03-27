@@ -78,6 +78,17 @@ class PathTraceCollector:
         self._availability_warning_sent = False
         self._execution_warning_sent = False
 
+    @staticmethod
+    def _failed_snapshot(out) -> PathTraceSnapshot:
+        return PathTraceSnapshot(
+            local_address=out.local_address,
+            local_port=out.local_port,
+            peer_address=out.peer_address,
+            peer_port=out.peer_port,
+            success=False,
+            hops_total=0.0,
+        )
+
     def collect(self, output):
         if self.ttl == 0:
             return {}
@@ -137,14 +148,14 @@ class PathTraceCollector:
                     f"Path trace is disabled because {self.tracepath_binary} is unavailable"
                 )
                 self._availability_warning_sent = True
-            return None
+            return self._failed_snapshot(out)
         except subprocess.TimeoutExpired:
             if not self._execution_warning_sent:
                 log.warning(
                     f"Path trace is disabled because {' '.join(command)} timed out after {self.timeout}s"
                 )
                 self._execution_warning_sent = True
-            return None
+            return self._failed_snapshot(out)
 
         snapshot = self._parse_output(
             out.local_address,
@@ -160,7 +171,7 @@ class PathTraceCollector:
                     f"Path trace is disabled because {' '.join(command)} failed: {stderr}"
                 )
                 self._execution_warning_sent = True
-            return None
+            return self._failed_snapshot(out)
 
         self._execution_warning_sent = False
         return snapshot

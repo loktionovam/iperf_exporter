@@ -1,37 +1,15 @@
-# Local Demo Stack
+# Demo Layout
 
-This stack starts:
+The demo area is now split into two independent catalogs:
 
-- `iperf-exporter-server-udp`
-- `iperf-exporter-client-udp`
-- `iperf-exporter-server-udp-2`
-- `iperf-exporter-client-udp-2`
-- `iperf-exporter-server-tcp`
-- `iperf-exporter-client-tcp`
-- `iperf-exporter-server-tcp-2`
-- `iperf-exporter-client-tcp-2`
-- `prometheus`
-- `grafana`
+- [docker-compose](./docker-compose/README.md)
+  Local containers with Prometheus and Grafana.
+- [kind](./kind/README.md)
+  `kopf` operator, CRDs, example `MeasurementProfile` / `LinkMeasurement` resources, and an in-cluster Prometheus + Grafana stack with provisioned dashboards.
 
-The TCP pairs run `iperf2` with `--trip-times` on clients and `--histograms=100u,20` on servers, so the TCP quality dashboard includes burst latency, in-progress bytes, net power, latency histograms, path traces, configured client bandwidth limits and server-side socket stats from `ss -tin` in addition to throughput. The UDP dashboard also shows path traces and server-side socket queue depth from `ss -uin`.
+Use the docker-compose demo when you want quick local dashboards without Kubernetes.
 
-Endpoints:
+Use the kind demo when you want to validate the operator and generated `MeasurementSession` resources.
 
-- Grafana: `http://localhost:3000`
-- Prometheus: `http://localhost:9090`
-- UDP exporter metrics: `http://localhost:9868/metrics`
-- UDP exporter metrics 2: `http://localhost:9870/metrics`
-- TCP exporter metrics: `http://localhost:9869/metrics`
-- TCP exporter metrics 2: `http://localhost:9871/metrics`
-
-Start:
-
-```sh
-docker compose -f demo/docker-compose.yml up -d --build
-```
-
-Stop:
-
-```sh
-docker compose -f demo/docker-compose.yml down
-```
+Reusable non-demo `MeasurementProfile` examples are documented in
+[docs/profile-catalog.md](../docs/profile-catalog.md).

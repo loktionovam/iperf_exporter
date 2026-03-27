@@ -7,6 +7,9 @@ The exporter parses `iperf --server --enhanced` output, exposes per-stream metri
 ## Contents
 
 - [Building and running](#building-and-running)
+- [Kubernetes operator MVP](#kubernetes-operator-mvp)
+- [Operator CRD reference](./docs/operator-crds.md)
+- [Measurement profile catalog](./docs/profile-catalog.md)
 - [Exported metrics](#exported-metrics)
 - [Grafana](#grafana)
 - [Developing and testing](#developing-and-testing-iperf-exporter)
@@ -104,6 +107,132 @@ docker run -p 9867:9867 -d yourname/iperf_exporter_server:0.1.0
 curl http://localhost:9867/metrics/
 ```
 
+## Kubernetes operator MVP
+
+There are now two demo catalogs under [demo/README.md](./demo/README.md):
+
+- [docker-compose](./demo/docker-compose/README.md)
+- [kind](./demo/kind/README.md)
+
+Implemented controller scope:
+
+- `MeasurementProfile`
+- `LinkMeasurement`
+- generated `MeasurementSession`
+- `execution.mode: continuous`
+- `execution.mode: probe`
+- `execution.mode: periodicProbe`
+- `networkModes: host | pod | service`
+- bidirectional expansion into separate sessions
+
+The profile is intentionally mapped to the exporter surface directly, so
+`MeasurementProfile.spec.exporter` can set every exporter runtime option
+currently supported by the CLI. The complete field-by-field reference is in
+[docs/operator-crds.md](./docs/operator-crds.md), and the reusable scenario
+profiles are cataloged in [docs/profile-catalog.md](./docs/profile-catalog.md).
+
+Example profile:
+
+```yaml
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: MeasurementProfile
+metadata:
+  name: tcp-quality-continuous
+spec:
+  protocol: tcp
+  exporter:
+    port: 5001
+    bindPort: 9868
+    interval: 1
+    len: 8192
+    metricTTL: 120
+    clientBandwidth: 5M
+    clientDuration: 315360000
+    clientAdditionalParams: --trip-times
+    serverAdditionalParams: --histograms=100u,20
+    pathTraceTTL: 60
+    pathTraceMaxHops: 8
+    pathTraceTimeout: 5
+```
+
+Example measurement:
+
+```yaml
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: LinkMeasurement
+metadata:
+  name: tcp-demo
+spec:
+  profileRef: tcp-quality-continuous
+  source:
+    cluster: local
+    nodeName: iperf-demo-worker
+  destination:
+    cluster: local
+    nodeName: iperf-demo-worker2
+  directions:
+    - sourceToDestination
+    - destinationToSource
+  networkModes:
+    - host
+    - pod
+    - service
+  execution:
+    mode: continuous
+```
+
+Other supported execution modes:
+
+- `probe`
+  Runs one bounded client measurement and exits. In the kind demo these examples
+  use higher burst bandwidth profiles.
+- `periodicProbe`
+  Keeps the server running and repeats a bounded client measurement every
+  `execution.every`.
+
+Bring up the demo cluster:
+
+```sh
+make demo-kind-up
+```
+
+This also installs:
+
+- Prometheus at `http://prometheus.127.0.0.1.nip.io:8080`
+- Grafana at `http://grafana.127.0.0.1.nip.io:8080`
+- the provisioned dashboards `iperf-exporter-overview`, `iperf-exporter-tcp-quality`, `iperf-exporter-udp-quality`
+
+The kind demo builds two separate images:
+
+- `iperf_exporter:kind-demo` for server/client exporter workloads
+- `iperf_operator:kind-demo` for the `kopf` controller
+
+Kind demo example resources:
+
+- continuous:
+  - [measurement-tcp.yaml](./demo/kind/examples/measurement-tcp.yaml)
+  - [measurement-udp.yaml](./demo/kind/examples/measurement-udp.yaml)
+- periodic probes:
+  - [measurement-tcp-periodic.yaml](./demo/kind/examples/measurement-tcp-periodic.yaml)
+  - [measurement-udp-periodic.yaml](./demo/kind/examples/measurement-udp-periodic.yaml)
+- oneshot probes with higher bandwidth:
+  - [measurement-tcp-probe.yaml](./demo/kind/examples/measurement-tcp-probe.yaml)
+  - [measurement-udp-probe.yaml](./demo/kind/examples/measurement-udp-probe.yaml)
+
+Reusable non-demo profiles:
+
+- [examples/profiles](./examples/profiles/README.md)
+
+Verify created entities:
+
+```sh
+kubectl --context kind-iperf-demo -n iperf-exporter-demo get measurementprofiles
+kubectl --context kind-iperf-demo -n iperf-exporter-demo get linkmeasurements
+kubectl --context kind-iperf-demo -n iperf-exporter-demo get measurementsessions
+```
+
+`host` mode uses `hostNetwork=true`, so co-located server sessions on the same node must not share the same exporter `bindPort`. The demo profiles intentionally use different metrics ports for TCP and UDP host-mode sessions.
+
 ## Exported metrics
 
 ### Common labels on per-stream metrics
@@ -119,6 +248,16 @@ All UDP and TCP stream metrics share the same label set:
 | `peer_address` | Client address seen by the server. |
 | `peer_port` | Client source port seen by the server. |
 | `connection_pair` | Convenience label in the form `<peer_address>-><local_address>`, intended for Grafana filtering by client/server pair. |
+| `measurement_id` | Optional higher-level measurement identifier. Populated by the kind operator; empty for standalone runs. |
+| `profile_ref` | Optional `MeasurementProfile` reference name. Populated by the kind operator; empty for standalone runs. |
+| `session_id` | Optional session identifier. Populated by the kind operator; empty for standalone runs. |
+| `execution_mode` | Optional execution mode such as `continuous`, `probe` or `periodicProbe`. Populated by the kind operator; empty for standalone runs. |
+| `direction` | Optional direction such as `sourceToDestination` or `destinationToSource`. Populated by the kind operator; empty for standalone runs. |
+| `network_mode` | Optional topology hint such as `host`, `pod` or `service`. Populated by the kind operator; empty for standalone runs. |
+| `src_node` | Optional source node name. Populated by the kind operator; empty for standalone runs. |
+| `dst_node` | Optional destination node name. Populated by the kind operator; empty for standalone runs. |
+| `src_cluster` | Optional source cluster name. Populated by the kind operator; empty for standalone runs. |
+| `dst_cluster` | Optional destination cluster name. Populated by the kind operator; empty for standalone runs. |
 
 ### UDP metrics
 

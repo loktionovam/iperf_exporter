@@ -1,5 +1,8 @@
 **
 !iperf_exporter
+!iperf_operator
 !requirements.txt
+!requirements-operator.txt
 !setup.py
 !README.md
+!Dockerfile.operator

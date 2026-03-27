@@ -1,0 +1,99 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: linkmeasurements.netperf.iperfexporter.io
+spec:
+  group: netperf.iperfexporter.io
+  names:
+    kind: LinkMeasurement
+    plural: linkmeasurements
+    singular: linkmeasurement
+    shortNames:
+      - lmeasure
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Profile
+          type: string
+          jsonPath: .spec.profileRef
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - profileRef
+                - source
+                - destination
+              properties:
+                profileRef:
+                  type: string
+                source:
+                  type: object
+                  required:
+                    - nodeName
+                  properties:
+                    cluster:
+                      type: string
+                    nodeName:
+                      type: string
+                destination:
+                  type: object
+                  required:
+                    - nodeName
+                  properties:
+                    cluster:
+                      type: string
+                    nodeName:
+                      type: string
+                directions:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - sourceToDestination
+                      - destinationToSource
+                networkModes:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - host
+                      - pod
+                      - service
+                execution:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                      enum:
+                        - continuous
+                        - probe
+                        - periodicProbe
+                    every:
+                      type: string
+                    everySeconds:
+                      type: integer
+                    durationSeconds:
+                      type: integer
+                    allowOverlap:
+                      type: boolean
+                runtime:
+                  type: object
+                  properties:
+                    image:
+                      type: string
+                    imagePullPolicy:
+                      type: string
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      subresources:
+        status: {}

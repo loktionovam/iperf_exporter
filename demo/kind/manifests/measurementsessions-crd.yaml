@@ -1,0 +1,205 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: measurementsessions.netperf.iperfexporter.io
+spec:
+  group: netperf.iperfexporter.io
+  names:
+    kind: MeasurementSession
+    plural: measurementsessions
+    singular: measurementsession
+    shortNames:
+      - msession
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Protocol
+          type: string
+          jsonPath: .spec.protocol
+        - name: Direction
+          type: string
+          jsonPath: .spec.direction
+        - name: Mode
+          type: string
+          jsonPath: .spec.networkMode
+        - name: Src
+          type: string
+          jsonPath: .spec.source.nodeName
+        - name: Dst
+          type: string
+          jsonPath: .spec.destination.nodeName
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - measurementRef
+                - profileRef
+                - protocol
+                - direction
+                - networkMode
+                - source
+                - destination
+                - execution
+                - runtime
+                - exporter
+              properties:
+                measurementRef:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                profileRef:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
+                protocol:
+                  type: string
+                  enum:
+                    - tcp
+                    - udp
+                direction:
+                  type: string
+                  enum:
+                    - sourceToDestination
+                    - destinationToSource
+                networkMode:
+                  type: string
+                  enum:
+                    - host
+                    - pod
+                    - service
+                source:
+                  type: object
+                  required:
+                    - cluster
+                    - nodeName
+                    - nodeAddress
+                  properties:
+                    cluster:
+                      type: string
+                    nodeName:
+                      type: string
+                    nodeAddress:
+                      type: string
+                destination:
+                  type: object
+                  required:
+                    - cluster
+                    - nodeName
+                    - nodeAddress
+                  properties:
+                    cluster:
+                      type: string
+                    nodeName:
+                      type: string
+                    nodeAddress:
+                      type: string
+                execution:
+                  type: object
+                  properties:
+                    mode:
+                      type: string
+                    every:
+                      type: string
+                    everySeconds:
+                      type: integer
+                    durationSeconds:
+                      type: integer
+                    allowOverlap:
+                      type: boolean
+                runtime:
+                  type: object
+                  required:
+                    - image
+                    - imagePullPolicy
+                  properties:
+                    image:
+                      type: string
+                    imagePullPolicy:
+                      type: string
+                exporter:
+                  type: object
+                  required:
+                    - protocol
+                    - port
+                    - bindPort
+                    - interval
+                    - len
+                    - metricTTL
+                    - debug
+                    - clientBandwidth
+                    - clientDuration
+                    - serverAdditionalParams
+                    - clientAdditionalParams
+                    - contextClientBandwidth
+                    - contextClientAdditionalParams
+                    - pathTraceTTL
+                    - pathTraceMaxHops
+                    - pathTraceTimeout
+                    - env
+                    - serverEnv
+                    - clientEnv
+                  properties:
+                    protocol:
+                      type: string
+                    port:
+                      type: integer
+                    bindPort:
+                      type: integer
+                    interval:
+                      type: integer
+                    len:
+                      type: integer
+                    metricTTL:
+                      type: integer
+                    debug:
+                      type: boolean
+                    clientBandwidth:
+                      type: string
+                    clientDuration:
+                      type: integer
+                    serverAdditionalParams:
+                      type: string
+                    clientAdditionalParams:
+                      type: string
+                    contextClientBandwidth:
+                      type: string
+                    contextClientAdditionalParams:
+                      type: string
+                    pathTraceTTL:
+                      type: integer
+                    pathTraceMaxHops:
+                      type: integer
+                    pathTraceTimeout:
+                      type: integer
+                    env:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    serverEnv:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    clientEnv:
+                      type: object
+                      additionalProperties:
+                        type: string
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      subresources:
+        status: {}

@@ -116,7 +116,7 @@
       },
       "targets": [
         {
-          "expr": "max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Server Port\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"local_port\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Peer Version\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"peer_version\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Trip-Times Enabled\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"trip_times_enabled\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Report Interval (s)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"report_interval_seconds\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", client_bandwidth_limit!=\"\"}, \"parameter\", \"Client Bandwidth Limit\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"client_bandwidth_limit\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", client_additional_params!=\"\"}, \"parameter\", \"Client Extra Params\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"client_additional_params\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Datagram Size (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_len_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_udp_buffer_bytes!=\"\"}, \"parameter\", \"UDP Buffer (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_udp_buffer_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_additional_params!=\"\"}, \"parameter\", \"Server Extra Params\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_additional_params\", \"(.*)\"))",
+          "expr": "max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", network_mode!=\"\"}, \"parameter\", \"Network Mode\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"network_mode\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", direction!=\"\"}, \"parameter\", \"Direction\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"direction\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", src_node!=\"\"}, \"parameter\", \"Source Node\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"src_node\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", dst_node!=\"\"}, \"parameter\", \"Destination Node\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"dst_node\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Server Port\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"local_port\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Peer Version\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"peer_version\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Trip-Times Enabled\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"trip_times_enabled\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Report Interval (s)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"report_interval_seconds\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", client_bandwidth_limit!=\"\"}, \"parameter\", \"Client Bandwidth Limit\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"client_bandwidth_limit\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", client_additional_params!=\"\"}, \"parameter\", \"Client Extra Params\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"client_additional_params\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}, \"parameter\", \"Datagram Size (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_len_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_udp_buffer_bytes!=\"\"}, \"parameter\", \"UDP Buffer (B)\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_udp_buffer_bytes\", \"(.*)\")) or max by (connection_pair, peer_port, parameter, setting_value) (label_replace(label_replace(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", server_additional_params!=\"\"}, \"parameter\", \"Server Extra Params\", \"__name__\", \".*\"), \"setting_value\", \"$1\", \"server_additional_params\", \"(.*)\"))",
           "instant": true,
           "legendFormat": "__auto",
           "refId": "A"
@@ -203,7 +203,7 @@
       },
       "targets": [
         {
-          "expr": "max by (connection_pair, peer_port, hop_index, hop_address, hop_summary) (iperf_exporter_udp_path_trace_hop_info{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
+          "expr": "max by (connection_pair, peer_port, hop_index, hop_address, hop_summary) (iperf_exporter_udp_path_trace_hop_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -280,7 +280,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_jitter{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_jitter{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -333,7 +333,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_lost_percentage{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"} / 100",
+          "expr": "iperf_exporter_udp_lost_percentage{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"} / 100",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -373,7 +373,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_lost{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_lost{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -413,7 +413,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_latency_avg{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_latency_avg{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -466,7 +466,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_latency_min{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_latency_min{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -506,7 +506,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_latency_max{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_latency_max{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -546,7 +546,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_latency_stdev{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_latency_stdev{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -599,7 +599,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_pps{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_pps{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -639,7 +639,7 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_netpwr{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_netpwr{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "{{connection_pair}} / {{peer_port}}",
           "refId": "A"
         }
@@ -679,12 +679,12 @@
       },
       "targets": [
         {
-          "expr": "iperf_exporter_udp_socket_recv_queue_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_socket_recv_queue_bytes{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "Recv-Q / {{connection_pair}}",
           "refId": "A"
         },
         {
-          "expr": "iperf_exporter_udp_socket_send_queue_bytes{connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
+          "expr": "iperf_exporter_udp_socket_send_queue_bytes{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}",
           "legendFormat": "Send-Q / {{connection_pair}}",
           "refId": "B"
         }
@@ -714,14 +714,14 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(iperf_exporter_udp_transfer{connection_pair!=\"\"}, connection_pair)",
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id!=\"\"}, measurement_id)",
         "hide": 0,
         "includeAll": true,
-        "label": "Client->Server Pair",
+        "label": "Measurement",
         "multi": false,
-        "name": "connection_pair",
+        "name": "measurement_id",
         "options": [],
-        "query": "label_values(iperf_exporter_udp_transfer{connection_pair!=\"\"}, connection_pair)",
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id!=\"\"}, measurement_id)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -739,14 +739,239 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\"}, peer_port)",
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref!=\"\"}, profile_ref)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Profile",
+        "multi": false,
+        "name": "profile_ref",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref!=\"\"}, profile_ref)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode!=\"\"}, execution_mode)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Execution Mode",
+        "multi": false,
+        "name": "execution_mode",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode!=\"\"}, execution_mode)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction!=\"\"}, direction)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Direction",
+        "multi": false,
+        "name": "direction",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction!=\"\"}, direction)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster!=\"\"}, src_cluster)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Source Cluster",
+        "multi": false,
+        "name": "src_cluster",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster!=\"\"}, src_cluster)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node!=\"\"}, src_node)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Source Node",
+        "multi": false,
+        "name": "src_node",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node!=\"\"}, src_node)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster!=\"\"}, dst_cluster)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Destination Cluster",
+        "multi": false,
+        "name": "dst_cluster",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster!=\"\"}, dst_cluster)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node!=\"\"}, dst_node)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Destination Node",
+        "multi": false,
+        "name": "dst_node",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node!=\"\"}, dst_node)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode!=\"\"}, network_mode)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Network Mode",
+        "multi": false,
+        "name": "network_mode",
+        "options": [],
+        "query": "label_values(iperf_exporter_iperf_process_up{mode=\"server\", proto=\"udp\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode!=\"\"}, network_mode)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair!=\"\"}, connection_pair)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Client->Server Pair",
+        "multi": false,
+        "name": "connection_pair",
+        "options": [],
+        "query": "label_values(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair!=\"\"}, connection_pair)",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\"}, peer_port)",
         "hide": 0,
         "includeAll": true,
         "label": "Session",
         "multi": false,
         "name": "session_port",
         "options": [],
-        "query": "label_values(iperf_exporter_udp_test_info{connection_pair=~\"$connection_pair\"}, peer_port)",
+        "query": "label_values(iperf_exporter_udp_test_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\"}, peer_port)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
@@ -763,6 +988,6 @@
   "timezone": "",
   "title": "IPerf Exporter UDP Quality",
   "uid": "iperf-exporter-udp-quality",
-  "version": 7,
+  "version": 9,
   "weekStart": ""
 }

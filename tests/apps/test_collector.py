@@ -8,6 +8,32 @@ from iperf_exporter.iperf import IPerfServer
 from iperf_exporter.path_trace import PathTraceHop, PathTraceSnapshot
 from iperf_exporter.socket_stats import SocketSnapshot, TCPSocketSnapshot
 
+EMPTY_CONTEXT_LABELS = {
+    "measurement_id": "",
+    "profile_ref": "",
+    "session_id": "",
+    "execution_mode": "",
+    "direction": "",
+    "network_mode": "",
+    "src_node": "",
+    "dst_node": "",
+    "src_cluster": "",
+    "dst_cluster": "",
+}
+
+K8S_CONTEXT_LABELS = {
+    "measurement_id": "tcp-demo",
+    "profile_ref": "tcp-quality",
+    "session_id": "tcp-demo-service-sourcetodestination",
+    "execution_mode": "continuous",
+    "direction": "sourceToDestination",
+    "network_mode": "service",
+    "src_node": "worker-a",
+    "dst_node": "worker-b",
+    "src_cluster": "local",
+    "dst_cluster": "local",
+}
+
 
 class StdOutProcess:
     def __init__(self, file):
@@ -94,7 +120,7 @@ class TestIPerfCollector(TestCase):
         return process
 
     def test_collect_udp_metrics(self):
-        server = IPerfServer("5001", "udp", "1280", 604800)
+        server = IPerfServer("5001", "udp", "1280", 1, 604800)
         server._process = self.new_process("tests/apps/data/new_client.log")
         server.read_output()
         fake_server = FakeServer(
@@ -141,6 +167,7 @@ class TestIPerfCollector(TestCase):
             port=5001,
             proto="udp",
             len="1280",
+            interval=1,
             metric_ttl=604800,
             server_cls=lambda *args, **kwargs: fake_server,
             socket_stats_cls=lambda *args, **kwargs: fake_socket_stats,
@@ -156,6 +183,7 @@ class TestIPerfCollector(TestCase):
             "peer_address": "127.0.0.2",
             "peer_port": "52370",
             "connection_pair": "127.0.0.2->127.0.0.1",
+            **EMPTY_CONTEXT_LABELS,
         }
 
         self.assertTrue(fake_server.run_called)
@@ -175,14 +203,14 @@ class TestIPerfCollector(TestCase):
             1.0,
             registry.get_sample_value(
                 "iperf_exporter_iperf_process_up",
-                labels={"mode": "server", "proto": "udp"},
+                labels={"mode": "server", "proto": "udp", **EMPTY_CONTEXT_LABELS},
             ),
         )
         self.assertEqual(
             0.0,
             registry.get_sample_value(
                 "iperf_exporter_iperf_process_restarts_total",
-                labels={"mode": "server", "proto": "udp"},
+                labels={"mode": "server", "proto": "udp", **EMPTY_CONTEXT_LABELS},
             ),
         )
         self.assertEqual(
@@ -242,7 +270,7 @@ class TestIPerfCollector(TestCase):
         self.assertTrue(fake_path_trace.collect_called)
 
     def test_collect_tcp_metrics(self):
-        server = IPerfServer("5001", "tcp", "8192", 604800)
+        server = IPerfServer("5001", "tcp", "8192", 1, 604800)
         server._process = self.new_process("tests/apps/data/new_client_tcp.log")
         server.read_output()
         fake_server = FakeServer(
@@ -315,9 +343,11 @@ class TestIPerfCollector(TestCase):
             port=5001,
             proto="tcp",
             len="8192",
+            interval=1,
             metric_ttl=604800,
             context_client_bandwidth="100M",
             context_client_additional_params="--trip-times",
+            context_labels=K8S_CONTEXT_LABELS,
             server_cls=lambda *args, **kwargs: fake_server,
             socket_stats_cls=lambda *args, **kwargs: fake_socket_stats,
             path_trace_cls=lambda *args, **kwargs: fake_path_trace,
@@ -332,6 +362,7 @@ class TestIPerfCollector(TestCase):
             "peer_address": "45.56.85.133",
             "peer_port": "49960",
             "connection_pair": "45.56.85.133->45.33.58.123",
+            **K8S_CONTEXT_LABELS,
         }
 
         self.assertEqual(
@@ -456,7 +487,7 @@ class TestIPerfCollector(TestCase):
         self.assertTrue(fake_path_trace.collect_called)
 
     def test_collect_tcp_trip_times_and_histogram_metrics(self):
-        server = IPerfServer("6011", "tcp", "8192", 604800)
+        server = IPerfServer("6011", "tcp", "8192", 1, 604800)
         server._process = self.new_process(
             "tests/apps/data/new_client_tcp_trip_times.log"
         )
@@ -474,6 +505,7 @@ class TestIPerfCollector(TestCase):
             port=6011,
             proto="tcp",
             len="8192",
+            interval=1,
             metric_ttl=604800,
             server_cls=lambda *args, **kwargs: fake_server,
             socket_stats_cls=lambda *args, **kwargs: FakeSocketStatsCollector({}),
@@ -489,6 +521,7 @@ class TestIPerfCollector(TestCase):
             "peer_address": "127.0.0.1",
             "peer_port": "65031",
             "connection_pair": "127.0.0.1->127.0.0.1",
+            **EMPTY_CONTEXT_LABELS,
         }
 
         self.assertEqual(
@@ -596,6 +629,7 @@ class TestIPerfCollector(TestCase):
             port=5001,
             proto="tcp",
             len="8192",
+            interval=1,
             metric_ttl=604800,
             server_cls=lambda *args, **kwargs: fake_server,
             socket_stats_cls=lambda *args, **kwargs: FakeSocketStatsCollector({}),
@@ -607,21 +641,21 @@ class TestIPerfCollector(TestCase):
             1.0,
             registry.get_sample_value(
                 "iperf_exporter_iperf_process_up",
-                labels={"mode": "server", "proto": "tcp"},
+                labels={"mode": "server", "proto": "tcp", **EMPTY_CONTEXT_LABELS},
             ),
         )
         self.assertEqual(
             2.0,
             registry.get_sample_value(
                 "iperf_exporter_iperf_process_restarts_total",
-                labels={"mode": "server", "proto": "tcp"},
+                labels={"mode": "server", "proto": "tcp", **EMPTY_CONTEXT_LABELS},
             ),
         )
         self.assertEqual(
             1.0,
             registry.get_sample_value(
                 "iperf_exporter_iperf_process_last_exit_code",
-                labels={"mode": "server", "proto": "tcp"},
+                labels={"mode": "server", "proto": "tcp", **EMPTY_CONTEXT_LABELS},
             ),
         )
 
@@ -631,6 +665,7 @@ class TestIPerfCollector(TestCase):
             port=5001,
             proto="udp",
             len="1280",
+            interval=1,
             metric_ttl=604800,
             server_cls=lambda *args, **kwargs: fake_server,
             socket_stats_cls=lambda *args, **kwargs: FakeSocketStatsCollector({}),

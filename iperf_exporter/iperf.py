@@ -164,6 +164,7 @@ class IPerf(ABC):
         self,
         port: int,
         proto: str,
+        interval: int,
         additional_params: str,
         process_factory=subprocess.Popen,
     ):
@@ -172,6 +173,7 @@ class IPerf(ABC):
 
         self.port = int(port)
         self.proto = proto
+        self.interval = int(interval)
         self.additional_params = additional_params
         self.process_factory = process_factory
         self.command = self.build_command()
@@ -252,6 +254,18 @@ class IPerf(ABC):
             return self._process is not None and (
                 not hasattr(self._process, "poll") or self._process.poll() is None
             )
+
+    def poll_exit_code(self):
+        with self._process_lock:
+            if self._process is None or not hasattr(self._process, "poll"):
+                return None
+
+            exit_code = self._process.poll()
+            if exit_code is None:
+                return None
+
+            self.last_exit_code = exit_code
+            return exit_code
 
 
 @dataclass
@@ -440,15 +454,22 @@ class IPerfClient(IPerf):
         self,
         port,
         proto,
+        interval,
         bandwidth,
+        duration,
         peer,
         additional_params="",
         process_factory=subprocess.Popen,
     ):
         self.bandwidth = bandwidth
+        self.duration = int(duration)
         self.peer = peer
         super().__init__(
-            port, proto, additional_params, process_factory=process_factory
+            port,
+            proto,
+            interval,
+            additional_params,
+            process_factory=process_factory,
         )
 
     def build_command(self) -> list[str]:
@@ -457,12 +478,12 @@ class IPerfClient(IPerf):
             "--client",
             self.peer,
             "--interval",
-            "1",
+            str(self.interval),
             "--port",
             str(self.port),
             "--enhanced",
             "-t",
-            "315360000",
+            str(self.duration),
             "--utc",
         ]
         command.extend(_protocol_args(self.proto))
@@ -560,6 +581,7 @@ class IPerfServer(IPerf):
         port,
         proto,
         len,
+        interval,
         metric_ttl,
         additional_params="",
         process_factory=subprocess.Popen,
@@ -568,6 +590,7 @@ class IPerfServer(IPerf):
         watchdog_interval=1,
     ):
         self.len = int(len)
+        self.interval = int(interval)
         self.metric_ttl = int(metric_ttl)
         self.cleanup_startup_delay = cleanup_startup_delay
         self.cleanup_interval = cleanup_interval
@@ -581,7 +604,7 @@ class IPerfServer(IPerf):
         self.cleanup_thread = None
         self.watchdog_thread = None
         super().__init__(
-            port, proto, additional_params, process_factory=process_factory
+            port, proto, interval, additional_params, process_factory=process_factory
         )
         self.output_cls = (
             IPerfServerUDPOutput if self.proto == "udp" else IPerfServerTCPOutput
@@ -602,7 +625,7 @@ class IPerfServer(IPerf):
             "--len",
             str(self.len),
             "--interval",
-            "1",
+            str(self.interval),
             "--format",
             "b",
             "--utc",
@@ -919,7 +942,7 @@ class IPerfServer(IPerf):
 
 
 if __name__ == "__main__":
-    server = IPerfServer(5001, "udp", 1280, 604800)
+    server = IPerfServer(5001, "udp", 1280, 1, 604800)
     server.run()
     while True:
         server.read_output()

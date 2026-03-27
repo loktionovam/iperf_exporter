@@ -1,0 +1,23 @@
+# Long-lived TCP quality baseline.
+# Run this when you want a steady TCP flow that is easy to leave on for hours.
+# It is meant to verify routing, MSS/MTU, congestion control, exporter health,
+# and the TCP quality dashboards with minimal operator babysitting.
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: MeasurementProfile
+metadata:
+  name: tcp-quality-continuous
+spec:
+  protocol: tcp
+  exporter:
+    port: 5001
+    bindPort: 9868
+    interval: 1
+    len: 8192
+    metricTTL: 120
+    clientBandwidth: 5M
+    clientDuration: 315360000
+    clientAdditionalParams: --trip-times
+    serverAdditionalParams: --histograms=100u,20
+    pathTraceTTL: 60
+    pathTraceMaxHops: 8
+    pathTraceTimeout: 5

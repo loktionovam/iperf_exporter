@@ -1,0 +1,20 @@
+# Long-lived UDP quality baseline.
+# Run this when you want steady-state loss, jitter, and latency-spread metrics
+# without loading the path too aggressively.
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: MeasurementProfile
+metadata:
+  name: udp-quality-continuous
+spec:
+  protocol: udp
+  exporter:
+    port: 5002
+    bindPort: 9869
+    interval: 1
+    len: 1280
+    metricTTL: 120
+    clientBandwidth: 2M
+    clientDuration: 315360000
+    pathTraceTTL: 60
+    pathTraceMaxHops: 8
+    pathTraceTimeout: 5

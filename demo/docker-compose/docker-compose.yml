@@ -1,7 +1,7 @@
 services:
   iperf-exporter-server-udp:
     build:
-      context: ..
+      context: ../..
       args:
         MODE: server
         VERSION: 0.0.0+demo
@@ -187,7 +187,7 @@ services:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/iperf-exporter-overview.json
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../../grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3000:3000"
     networks:

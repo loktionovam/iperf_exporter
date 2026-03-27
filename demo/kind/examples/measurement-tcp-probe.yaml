@@ -1,0 +1,23 @@
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: LinkMeasurement
+metadata:
+  name: tcp-probe-demo
+  namespace: iperf-exporter-demo
+spec:
+  profileRef: tcp-throughput-probe
+  source:
+    cluster: local
+    nodeName: iperf-demo-worker
+  destination:
+    cluster: local
+    nodeName: iperf-demo-worker2
+  directions:
+    - sourceToDestination
+    - destinationToSource
+  networkModes:
+    - host
+    - pod
+    - service
+  execution:
+    mode: probe
+    durationSeconds: 180

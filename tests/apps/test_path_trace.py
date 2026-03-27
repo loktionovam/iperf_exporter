@@ -1,3 +1,4 @@
+import subprocess
 from types import SimpleNamespace
 from unittest import TestCase
 
@@ -120,3 +121,37 @@ class TestPathTraceCollector(TestCase):
         self.assertFalse(snapshot.success)
         self.assertEqual(snapshot.hops_total, 2.0)
         self.assertEqual(snapshot.hops[1].hop_summary, "no reply")
+
+    def test_collect_caches_failed_tracepath_result_until_ttl_expires(self):
+        now = [100.0]
+        runner_calls = []
+
+        def timeout_runner(command, **kwargs):
+            runner_calls.append(command)
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+        collector = PathTraceCollector(
+            proto="tcp",
+            ttl=30,
+            timeout=5,
+            runner=timeout_runner,
+            time_fn=lambda: now[0],
+        )
+        output = {
+            "5": SimpleNamespace(
+                local_address="172.31.240.6",
+                local_port="5001",
+                peer_address="172.31.240.10",
+                peer_port="50058",
+            )
+        }
+
+        snapshots = collector.collect(output)
+        collector.collect(output)
+        now[0] = 131.0
+        collector.collect(output)
+
+        snapshot = snapshots[("172.31.240.6", "5001", "172.31.240.10", "50058")]
+        self.assertFalse(snapshot.success)
+        self.assertEqual(snapshot.hops_total, 0.0)
+        self.assertEqual(len(runner_calls), 2)

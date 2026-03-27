@@ -1,0 +1,27 @@
+FROM python:3-alpine AS base
+
+RUN apk update \
+    && apk upgrade --no-cache expat expat-dev libcrypto3 libssl3 \
+    && adduser -H -S -D -u 1000 iperf_operator
+
+WORKDIR /app
+
+COPY requirements-operator.txt /tmp/requirements-operator.txt
+
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && python -m pip install --no-cache-dir -r /tmp/requirements-operator.txt \
+    && find /usr/local/lib -name "*.pyc" -delete
+
+COPY iperf_operator /app/iperf_operator
+
+ARG VERSION=dev
+
+USER iperf_operator
+
+LABEL maintainer=loktionovam@gmail.com
+LABEL version=${VERSION}
+
+ENV IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE=iperf_exporter:kind-demo \
+    PYTHONPATH=/app
+
+ENTRYPOINT ["kopf", "run", "--standalone", "-A", "-m", "iperf_operator.controller"]

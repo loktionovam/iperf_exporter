@@ -10,7 +10,7 @@ from iperf_exporter.logger import log
 from iperf_exporter.path_trace import PathTraceCollector, PathTraceSnapshot
 from iperf_exporter.socket_stats import SocketStatsCollector, TCPSocketSnapshot
 
-LABEL_NAMES = [
+BASE_LABEL_NAMES = [
     "peer_id",
     "local_address",
     "interface_name",
@@ -19,7 +19,20 @@ LABEL_NAMES = [
     "peer_port",
     "connection_pair",
 ]
-PROCESS_LABEL_NAMES = ["mode", "proto"]
+CONTEXT_LABEL_NAMES = [
+    "measurement_id",
+    "profile_ref",
+    "session_id",
+    "execution_mode",
+    "direction",
+    "network_mode",
+    "src_node",
+    "dst_node",
+    "src_cluster",
+    "dst_cluster",
+]
+LABEL_NAMES = BASE_LABEL_NAMES + CONTEXT_LABEL_NAMES
+PROCESS_LABEL_NAMES = ["mode", "proto"] + CONTEXT_LABEL_NAMES
 TCP_SOCKET_INFO_LABEL_NAMES = LABEL_NAMES + [
     "congestion_algorithm",
     "socket_state",
@@ -81,7 +94,26 @@ def _format_float_label(value: float) -> str:
     return f"{value:.12g}"
 
 
-def _label_values(out: IPerfServerUDPOutput | IPerfServerTCPOutput) -> list[str]:
+def _normalize_context_labels(
+    context_labels: dict[str, str] | None = None
+) -> dict[str, str]:
+    normalized = {name: "" for name in CONTEXT_LABEL_NAMES}
+    for key, value in (context_labels or {}).items():
+        if key not in normalized:
+            continue
+        normalized[key] = _label_value_or_empty(value)
+    return normalized
+
+
+def _context_label_values(context_labels: dict[str, str] | None = None) -> list[str]:
+    normalized = _normalize_context_labels(context_labels)
+    return [normalized[name] for name in CONTEXT_LABEL_NAMES]
+
+
+def _label_values(
+    out: IPerfServerUDPOutput | IPerfServerTCPOutput,
+    context_labels: dict[str, str] | None = None,
+) -> list[str]:
     return [
         out.peer_id,
         out.local_address,
@@ -90,7 +122,7 @@ def _label_values(out: IPerfServerUDPOutput | IPerfServerTCPOutput) -> list[str]
         out.peer_address,
         out.peer_port,
         _connection_pair_label(out),
-    ]
+    ] + _context_label_values(context_labels)
 
 
 def _socket_key(
@@ -138,8 +170,13 @@ class IPerfMetricsBase:
     metric_names = []
     metric_descriptions = {}
 
-    def __init__(self, output: dict[str, IPerfServerUDPOutput | IPerfServerTCPOutput]):
+    def __init__(
+        self,
+        output: dict[str, IPerfServerUDPOutput | IPerfServerTCPOutput],
+        context_labels: dict[str, str] | None = None,
+    ):
         self.data = {}
+        self.context_labels = _normalize_context_labels(context_labels)
         for name in self.metric_names:
             metric_name = f"{self.metrics_prefix}_{name}"
             self.data[metric_name] = GaugeMetricFamily(
@@ -149,7 +186,7 @@ class IPerfMetricsBase:
             )
 
         for peer_id, out in output.items():
-            label_values = _label_values(out)
+            label_values = _label_values(out, self.context_labels)
             for name in self.metric_names:
                 metric_name = f"{self.metrics_prefix}_{name}"
                 metric_value = getattr(out, name, None)
@@ -252,7 +289,12 @@ class IPerfTCPMetrics(IPerfMetricsBase):
 
 
 class IPerfTCPHistogramMetrics:
-    def __init__(self, output: dict[str, IPerfServerTCPHistogramOutput]):
+    def __init__(
+        self,
+        output: dict[str, IPerfServerTCPHistogramOutput],
+        context_labels: dict[str, str] | None = None,
+    ):
+        self.context_labels = _normalize_context_labels(context_labels)
         self.data = [
             GaugeMetricFamily(
                 "iperf_exporter_tcp_latency_histogram_bin_count",
@@ -285,7 +327,7 @@ class IPerfTCPHistogramMetrics:
                 histogram.peer_address,
                 histogram.peer_port,
                 f"{histogram.peer_address}->{histogram.local_address}",
-            ]
+            ] + _context_label_values(self.context_labels)
             info_labels = label_values + [histogram.histogram_name]
             self.data[1].add_metric(info_labels, float(histogram.sample_count))
             self.data[2].add_metric(info_labels, float(histogram.bin_width_seconds))
@@ -321,8 +363,16 @@ class IPerfTCPHistogramMetrics:
 
 
 class IPerfProcessMetrics:
-    def __init__(self, server, mode: str):
-        label_values = [mode, getattr(server, "proto", "unknown")]
+    def __init__(
+        self,
+        server,
+        mode: str,
+        context_labels: dict[str, str] | None = None,
+    ):
+        label_values = [
+            mode,
+            getattr(server, "proto", "unknown"),
+        ] + _context_label_values(context_labels)
         self.data = [
             GaugeMetricFamily(
                 "iperf_exporter_iperf_process_up",
@@ -365,7 +415,9 @@ class IPerfTestInfoMetrics:
         context_client_bandwidth: str = "",
         context_client_additional_params: str = "",
         report_interval_seconds: str = "1",
+        context_labels: dict[str, str] | None = None,
     ):
+        self.context_labels = _normalize_context_labels(context_labels)
         runtime_settings = getattr(server, "runtime_settings", None)
         server_len = _label_value_or_empty(getattr(server, "len", ""))
         additional_params = _label_value_or_empty(
@@ -401,7 +453,7 @@ class IPerfTestInfoMetrics:
         )
 
         for out in output.values():
-            common_labels = _label_values(out)
+            common_labels = _label_values(out, self.context_labels)
             if proto == "tcp":
                 self.info_metric.add_metric(
                     common_labels
@@ -470,7 +522,9 @@ class IPerfSocketQueueMetrics:
         output: dict[str, IPerfServerUDPOutput | IPerfServerTCPOutput],
         socket_snapshots: dict[tuple[str, str, str, str], object],
         proto: str,
+        context_labels: dict[str, str] | None = None,
     ):
+        self.context_labels = _normalize_context_labels(context_labels)
         prefix = f"iperf_exporter_{proto}_socket"
         self.data = [
             GaugeMetricFamily(
@@ -490,7 +544,7 @@ class IPerfSocketQueueMetrics:
             if snapshot is None:
                 continue
 
-            label_values = _label_values(out)
+            label_values = _label_values(out, self.context_labels)
             self.data[0].add_metric(label_values, float(snapshot.recv_queue))
             self.data[1].add_metric(label_values, float(snapshot.send_queue))
 
@@ -505,7 +559,9 @@ class IPerfPathTraceMetrics:
         output: dict[str, IPerfServerUDPOutput | IPerfServerTCPOutput],
         path_trace_snapshots: dict[tuple[str, str, str, str], PathTraceSnapshot],
         proto: str,
+        context_labels: dict[str, str] | None = None,
     ):
+        self.context_labels = _normalize_context_labels(context_labels)
         prefix = f"iperf_exporter_{proto}_path_trace"
         self.data = [
             GaugeMetricFamily(
@@ -535,7 +591,9 @@ class IPerfPathTraceMetrics:
             if snapshot is None:
                 continue
 
-            label_values = _label_values(out) + [snapshot.trace_direction]
+            label_values = _label_values(out, self.context_labels) + [
+                snapshot.trace_direction
+            ]
             self.data[0].add_metric(label_values, float(snapshot.success))
             if snapshot.pmtu_bytes is not None:
                 self.data[1].add_metric(label_values, float(snapshot.pmtu_bytes))
@@ -598,7 +656,9 @@ class IPerfTCPSocketMetrics:
         self,
         output: dict[str, IPerfServerTCPOutput],
         socket_snapshots: dict[tuple[str, str, str, str], object],
+        context_labels: dict[str, str] | None = None,
     ):
+        self.context_labels = _normalize_context_labels(context_labels)
         self.data = {
             metric_name: GaugeMetricFamily(
                 f"iperf_exporter_tcp_socket_{metric_name}",
@@ -618,7 +678,7 @@ class IPerfTCPSocketMetrics:
             if snapshot is None or not isinstance(snapshot, TCPSocketSnapshot):
                 continue
 
-            label_values = _label_values(out)
+            label_values = _label_values(out, self.context_labels)
             self.data["app_limited"].add_metric(
                 label_values, float(snapshot.app_limited)
             )
@@ -661,6 +721,7 @@ class IPerfCollector:
         port,
         proto,
         len,
+        interval,
         metric_ttl,
         additional_params="",
         context_client_bandwidth="",
@@ -668,17 +729,20 @@ class IPerfCollector:
         path_trace_ttl=300,
         path_trace_max_hops=16,
         path_trace_timeout=10,
+        context_labels=None,
         server_cls=IPerfServer,
         socket_stats_cls=SocketStatsCollector,
         path_trace_cls=PathTraceCollector,
     ):
         self.proto = proto
+        self.context_labels = _normalize_context_labels(context_labels)
         self.context_client_bandwidth = context_client_bandwidth
         self.context_client_additional_params = context_client_additional_params
         self.server = server_cls(
             port,
             proto,
             len,
+            interval,
             metric_ttl,
             additional_params=additional_params,
         )
@@ -702,7 +766,11 @@ class IPerfCollector:
             self.server.ensure_running()
         self.server.read_output()
         log.debug(self.server.output)
-        for metric in IPerfProcessMetrics(self.server, mode="server"):
+        for metric in IPerfProcessMetrics(
+            self.server,
+            mode="server",
+            context_labels=self.context_labels,
+        ):
             yield metric
         for metric in IPerfTestInfoMetrics(
             self.server,
@@ -710,15 +778,21 @@ class IPerfCollector:
             self.proto,
             context_client_bandwidth=self.context_client_bandwidth,
             context_client_additional_params=self.context_client_additional_params,
+            report_interval_seconds=str(getattr(self.server, "interval", 1)),
+            context_labels=self.context_labels,
         ):
             yield metric
-        for metric in self.metrics_cls(self.server.output):
+        for metric in self.metrics_cls(
+            self.server.output,
+            context_labels=self.context_labels,
+        ):
             yield metric
         path_trace_snapshots = self.path_trace.collect(self.server.output)
         for metric in IPerfPathTraceMetrics(
             self.server.output,
             path_trace_snapshots,
             self.proto,
+            context_labels=self.context_labels,
         ):
             yield metric
         socket_snapshots = self.socket_stats.collect()
@@ -726,16 +800,19 @@ class IPerfCollector:
             self.server.output,
             socket_snapshots,
             self.proto,
+            context_labels=self.context_labels,
         ):
             yield metric
         if self.proto == "tcp":
             for metric in IPerfTCPSocketMetrics(
                 self.server.output,
                 socket_snapshots,
+                context_labels=self.context_labels,
             ):
                 yield metric
             for metric in IPerfTCPHistogramMetrics(
-                getattr(self.server, "tcp_histograms", {})
+                getattr(self.server, "tcp_histograms", {}),
+                context_labels=self.context_labels,
             ):
                 yield metric
 

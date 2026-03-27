@@ -25,7 +25,15 @@ def normalize_version(raw_version: str) -> str:
 
 setup(
   name="iperf_exporter",
-  packages=find_packages(),
+  packages=find_packages(
+      include=["iperf_exporter", "iperf_exporter.*"],
+      exclude=[
+          "iperf_exporter.operator",
+          "iperf_exporter.operator.*",
+          "iperf_operator",
+          "iperf_operator.*",
+      ],
+  ),
   version=normalize_version(os.environ.get("VERSION", "0.0.0.dev0")),
   license="GPLv3+",
   description="iperf metrics exporter",

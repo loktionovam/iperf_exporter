@@ -1,0 +1,20 @@
+# Short higher-rate UDP burst.
+# Run this when you want to push the path hard enough to expose loss, jitter
+# spikes, or latency spread under stress.
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: MeasurementProfile
+metadata:
+  name: udp-loss-probe
+spec:
+  protocol: udp
+  exporter:
+    port: 5004
+    bindPort: 9871
+    interval: 1
+    len: 1280
+    metricTTL: 120
+    clientBandwidth: 80M
+    clientDuration: 180
+    pathTraceTTL: 60
+    pathTraceMaxHops: 8
+    pathTraceTimeout: 5

@@ -11,6 +11,20 @@ from iperf_exporter.iperf import IPerfClient
 from iperf_exporter.logger import log
 
 
+CONTEXT_LABEL_ENV_MAPPING = {
+    "measurement_id": "IPERF_EXPORTER_CONTEXT_MEASUREMENT_ID",
+    "profile_ref": "IPERF_EXPORTER_CONTEXT_PROFILE_REF",
+    "session_id": "IPERF_EXPORTER_CONTEXT_SESSION_ID",
+    "execution_mode": "IPERF_EXPORTER_CONTEXT_EXECUTION_MODE",
+    "direction": "IPERF_EXPORTER_CONTEXT_DIRECTION",
+    "network_mode": "IPERF_EXPORTER_CONTEXT_NETWORK_MODE",
+    "src_node": "IPERF_EXPORTER_CONTEXT_SRC_NODE",
+    "dst_node": "IPERF_EXPORTER_CONTEXT_DST_NODE",
+    "src_cluster": "IPERF_EXPORTER_CONTEXT_SRC_CLUSTER",
+    "dst_cluster": "IPERF_EXPORTER_CONTEXT_DST_CLUSTER",
+}
+
+
 def parse_args(args):
     parser = configargparse.ArgParser(
         description="IPerf exporter args",
@@ -90,6 +104,27 @@ def parse_args(args):
         help="IPerf client bandwidth",
         default=os.environ.get("IPERF_EXPORTER_CLIENT_BANDWIDTH", "1M"),
     )
+    parser.add(
+        "--iperf_exporter_client_duration",
+        metavar="iperf_exporter_client_duration",
+        type=int,
+        help="Client runtime in seconds for one iperf process execution",
+        default=int(os.environ.get("IPERF_EXPORTER_CLIENT_DURATION", "315360000")),
+    )
+    parser.add(
+        "--iperf_exporter_client_execution_mode",
+        metavar="iperf_exporter_client_execution_mode",
+        choices=["continuous", "probe", "periodicProbe"],
+        help="Client execution mode: keep streaming, run once, or rerun periodically",
+        default=os.environ.get("IPERF_EXPORTER_CLIENT_EXECUTION_MODE", "continuous"),
+    )
+    parser.add(
+        "--iperf_exporter_client_period_seconds",
+        metavar="iperf_exporter_client_period_seconds",
+        type=int,
+        help="Delay between periodic client probe runs",
+        default=int(os.environ.get("IPERF_EXPORTER_CLIENT_PERIOD_SECONDS", "0")),
+    )
 
     parser.add(
         "-a",
@@ -149,7 +184,74 @@ def parse_args(args):
         help="Subprocess timeout in seconds for one tracepath execution",
         default=int(os.environ.get("IPERF_EXPORTER_PATH_TRACE_TIMEOUT", "10")),
     )
+    parser.add(
+        "--iperf_exporter_context_measurement_id",
+        metavar="iperf_exporter_context_measurement_id",
+        help="Optional measurement identifier exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_MEASUREMENT_ID", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_profile_ref",
+        metavar="iperf_exporter_context_profile_ref",
+        help="Optional profile reference exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_PROFILE_REF", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_session_id",
+        metavar="iperf_exporter_context_session_id",
+        help="Optional session identifier exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_SESSION_ID", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_execution_mode",
+        metavar="iperf_exporter_context_execution_mode",
+        help="Optional execution mode exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_EXECUTION_MODE", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_direction",
+        metavar="iperf_exporter_context_direction",
+        help="Optional traffic direction exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_DIRECTION", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_network_mode",
+        metavar="iperf_exporter_context_network_mode",
+        help="Optional network mode exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_NETWORK_MODE", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_src_node",
+        metavar="iperf_exporter_context_src_node",
+        help="Optional source node name exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_SRC_NODE", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_dst_node",
+        metavar="iperf_exporter_context_dst_node",
+        help="Optional destination node name exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_DST_NODE", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_src_cluster",
+        metavar="iperf_exporter_context_src_cluster",
+        help="Optional source cluster name exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_SRC_CLUSTER", ""),
+    )
+    parser.add(
+        "--iperf_exporter_context_dst_cluster",
+        metavar="iperf_exporter_context_dst_cluster",
+        help="Optional destination cluster name exported as a metric label",
+        default=os.environ.get("IPERF_EXPORTER_CONTEXT_DST_CLUSTER", ""),
+    )
     return parser.parse_args(args)
+
+
+def build_context_labels(args):
+    return {
+        key: getattr(args, f"iperf_exporter_context_{key}")
+        for key in CONTEXT_LABEL_ENV_MAPPING
+    }
 
 
 def wait_forever():
@@ -162,6 +264,27 @@ def stream_client_output(iperf_client, sleep_fn=time.sleep):
         iperf_client.ensure_running()
         iperf_client.read_output()
         sleep_fn(1)
+
+
+def stream_client_once(iperf_client, sleep_fn=time.sleep):
+    while True:
+        iperf_client.read_output()
+        exit_code = iperf_client.poll_exit_code()
+        if exit_code is not None:
+            return exit_code
+        sleep_fn(1)
+
+
+def stream_client_periodically(iperf_client, period_seconds, sleep_fn=time.sleep):
+    period_seconds = max(int(period_seconds or 0), 1)
+    while True:
+        exit_code = stream_client_once(iperf_client, sleep_fn=sleep_fn)
+        if exit_code not in (None, 0):
+            log.warning(
+                f"Iperf {iperf_client.proto} probe exited with code {exit_code}, sleeping before retry"
+            )
+        sleep_fn(period_seconds)
+        iperf_client.run()
 
 
 def setup_exporter(
@@ -177,6 +300,7 @@ def setup_exporter(
         port=args.iperf_exporter_port,
         proto=args.iperf_exporter_proto,
         len=args.iperf_exporter_len,
+        interval=args.iperf_exporter_interval,
         metric_ttl=args.iperf_exporter_metric_ttl,
         additional_params=args.iperf_exporter_server_additional_params,
         context_client_bandwidth=args.iperf_exporter_context_client_bandwidth,
@@ -184,6 +308,7 @@ def setup_exporter(
         path_trace_ttl=args.iperf_exporter_path_trace_ttl,
         path_trace_max_hops=args.iperf_exporter_path_trace_max_hops,
         path_trace_timeout=args.iperf_exporter_path_trace_timeout,
+        context_labels=build_context_labels(args),
     )
     registry.register(collector)
     http_server_factory(args.iperf_exporter_bind_port)
@@ -216,7 +341,9 @@ def setup_client(args, client_cls=IPerfClient):
     iperf_client = client_cls(
         port=args.iperf_exporter_port,
         proto=args.iperf_exporter_proto,
+        interval=args.iperf_exporter_interval,
         bandwidth=args.iperf_exporter_client_bandwidth,
+        duration=args.iperf_exporter_client_duration,
         peer=args.iperf_exporter_client_peer,
         additional_params=args.iperf_exporter_client_additional_params,
     )
@@ -225,9 +352,27 @@ def setup_client(args, client_cls=IPerfClient):
     return iperf_client
 
 
-def run_client(args, client_cls=IPerfClient, output_loop_fn=stream_client_output):
+def run_client(
+    args,
+    client_cls=IPerfClient,
+    output_loop_fn=stream_client_output,
+    probe_loop_fn=stream_client_once,
+    periodic_loop_fn=stream_client_periodically,
+):
     iperf_client = setup_client(args, client_cls=client_cls)
-    output_loop_fn(iperf_client)
+    if args.iperf_exporter_client_execution_mode == "continuous":
+        output_loop_fn(iperf_client)
+    elif args.iperf_exporter_client_execution_mode == "probe":
+        iperf_client.last_exit_code = probe_loop_fn(iperf_client)
+    elif args.iperf_exporter_client_execution_mode == "periodicProbe":
+        periodic_loop_fn(
+            iperf_client,
+            args.iperf_exporter_client_period_seconds,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported client execution mode: {args.iperf_exporter_client_execution_mode}"
+        )
     return iperf_client
 
 
@@ -237,7 +382,12 @@ def main(argv=None):
         run_exporter(args)
         return 0
     if args.iperf_exporter_mode == "client":
-        run_client(args)
+        client = run_client(args)
+        if (
+            args.iperf_exporter_client_execution_mode == "probe"
+            and client.last_exit_code not in (None, 0)
+        ):
+            return int(client.last_exit_code)
         return 0
     raise ValueError(f"Unsupported mode: {args.iperf_exporter_mode}")
 
