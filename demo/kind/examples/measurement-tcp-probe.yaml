@@ -6,10 +6,10 @@ metadata:
 spec:
   profileRef: tcp-throughput-probe
   source:
-    cluster: local
+    cluster: cluster-a
     nodeName: iperf-demo-worker
   destination:
-    cluster: local
+    cluster: cluster-a
     nodeName: iperf-demo-worker2
   directions:
     - sourceToDestination

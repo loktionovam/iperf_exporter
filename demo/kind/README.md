@@ -1,11 +1,17 @@
 # Kind Operator Demo
 
-This demo creates a 3-node kind cluster, loads two local images,
+This demo creates two kind clusters:
+
+- `iperf-demo`: one control-plane node plus two workers
+- `iperf-demo-remote`: one control-plane node plus one worker
+
+It loads two local images,
 `iperf_exporter:kind-demo` and `iperf_operator:kind-demo`, deploys the `kopf`
 operator, installs Prometheus and Grafana, provisions the repository dashboards,
-and applies example `MeasurementProfile` and `LinkMeasurement` resources.
+and applies example `MeasurementProfile`, `RemoteCluster`, and
+`LinkMeasurement` resources.
 
-The operator currently implements the single-cluster MVP:
+The operator currently implements:
 
 - `execution.mode: continuous`
 - `execution.mode: probe`
@@ -14,6 +20,13 @@ The operator currently implements the single-cluster MVP:
 - `networkMode: pod`
 - `networkMode: service`
 - bidirectional sessions via generated `MeasurementSession` resources
+- cross-cluster `host` measurements through a `RemoteCluster` kubeconfig secret
+
+Current cross-cluster limitation:
+
+- only `networkMode: host` is supported when `source.cluster != destination.cluster`
+- `pod` and `service` remain single-cluster-only because the demo assumes those
+  networks are not routable between clusters
 
 The demo applies all three execution styles:
 
@@ -26,6 +39,10 @@ The demo applies all three execution styles:
 - oneshot bounded probes with higher bandwidth:
   - [measurement-tcp-probe.yaml](./examples/measurement-tcp-probe.yaml)
   - [measurement-udp-probe.yaml](./examples/measurement-udp-probe.yaml)
+- cross-cluster continuous host measurement:
+  - [remote-cluster-b.yaml](./examples/remote-cluster-b.yaml)
+  - [profile-tcp-quality-cross-cluster.yaml](./examples/profile-tcp-quality-cross-cluster.yaml)
+  - [measurement-tcp-cross-cluster.yaml](./examples/measurement-tcp-cross-cluster.yaml)
 
 Reusable scenario profiles:
 
@@ -85,9 +102,11 @@ Useful checks:
 
 ```sh
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get measurementprofiles
+kubectl --context kind-iperf-demo -n iperf-exporter-demo get remoteclusters
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get linkmeasurements
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get measurementsessions
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get statefulset,deploy,svc
+kubectl --context kind-iperf-demo-remote -n iperf-exporter-demo get statefulset,deploy,svc
 ```
 
 Note:
@@ -95,6 +114,8 @@ Note:
 - `host` mode uses `hostNetwork=true`
 - if multiple server sessions land on the same node, their exporter metrics `bindPort` values must be unique
 - the demo profiles already separate TCP and UDP bind ports for this reason
+- the cross-cluster example uses a dedicated TCP profile with its own traffic and
+  metrics ports so it does not collide with the single-cluster host sessions
 
 Dashboards provisioned in Grafana:
 

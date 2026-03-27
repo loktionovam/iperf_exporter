@@ -24,6 +24,7 @@ EXPECTED_PROFILES = {
     "udp-loss-probe",
     "tcp-quality-periodic",
     "udp-quality-periodic",
+    "tcp-quality-cross-cluster",
 }
 EXPECTED_MEASUREMENTS = {
     "tcp-demo",
@@ -32,6 +33,10 @@ EXPECTED_MEASUREMENTS = {
     "udp-periodic-demo",
     "tcp-probe-demo",
     "udp-probe-demo",
+    "tcp-cross-cluster-demo",
+}
+EXPECTED_REMOTE_CLUSTERS = {
+    "cluster-b",
 }
 EXPECTED_DASHBOARDS = {
     "iperf-exporter-overview",
@@ -165,6 +170,9 @@ def wait_for_demo_cluster():
     for name in sorted(EXPECTED_MEASUREMENTS):
         wait_for_phase("linkmeasurement", name, "Ready")
 
+    for name in sorted(EXPECTED_REMOTE_CLUSTERS):
+        wait_for_phase("remotecluster", name, "Ready")
+
     subprocess.check_call(
         [
             "kubectl",
@@ -246,6 +254,12 @@ def test_link_measurements_ready():
     assert EXPECTED_MEASUREMENTS <= names
 
 
+def test_remote_clusters_ready():
+    payload = kubectl_json("get", "remoteclusters")
+    names = {item["metadata"]["name"] for item in payload.get("items", [])}
+    assert EXPECTED_REMOTE_CLUSTERS <= names
+
+
 def test_measurement_sessions_cover_all_modes():
     payload = measurement_sessions_payload()
     items = payload.get("items", [])
@@ -278,6 +292,16 @@ def test_prometheus_has_active_iperf_targets():
         target for target in targets if target["labels"].get("job") == "iperf-exporter"
     ]
     assert iperf_targets
+
+
+def test_prometheus_sees_cross_cluster_measurement():
+    payload = http_json(
+        PROM_HOST,
+        "/api/v1/query?query=count(iperf_exporter_tcp_transfer%7Bmeasurement_id%3D%22tcp-cross-cluster-demo%22%7D)",
+    )
+    result = payload["data"]["result"]
+    assert result
+    assert float(result[0]["value"][1]) > 0
 
 
 def test_grafana_dashboards_are_provisioned():

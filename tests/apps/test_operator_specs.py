@@ -1,6 +1,7 @@
 from iperf_operator.specs import (
     build_exporter_env,
     expand_measurement_sessions,
+    session_client_deployment_name,
     session_client_peer,
     session_client_job_name,
     session_headless_service_name,
@@ -59,6 +60,14 @@ def _measurement(network_modes=None, execution=None):
             "runtime": {"image": "iperf_exporter:kind-demo"},
         },
     }
+
+
+def _cross_cluster_measurement(network_modes=None, execution=None):
+    measurement = _measurement(network_modes=network_modes, execution=execution)
+    measurement["metadata"]["name"] = "cluster-a-worker-a-cluster-b-worker-b"
+    measurement["spec"]["source"]["cluster"] = "cluster-a"
+    measurement["spec"]["destination"]["cluster"] = "cluster-b"
+    return measurement
 
 
 def test_expand_measurement_sessions_creates_bidirectional_sessions():
@@ -202,6 +211,76 @@ def test_expand_measurement_sessions_normalizes_periodic_execution():
     assert session["spec"]["execution"]["every"] == "5m"
     assert session["spec"]["execution"]["everySeconds"] == 300
     assert session["spec"]["execution"]["durationSeconds"] == 30
+
+
+def test_expand_measurement_sessions_allows_cross_cluster_host_measurements():
+    sessions = expand_measurement_sessions(
+        _cross_cluster_measurement(network_modes=["host"]),
+        _profile(),
+        node_addresses={
+            ("cluster-a", "worker-a"): "10.10.0.10",
+            ("cluster-b", "worker-b"): "10.20.0.11",
+        },
+        default_image="iperf_exporter:dev",
+    )
+
+    assert len(sessions) == 2
+    forward = next(
+        session
+        for session in sessions
+        if session["spec"]["direction"] == "sourceToDestination"
+    )
+    reverse = next(
+        session
+        for session in sessions
+        if session["spec"]["direction"] == "destinationToSource"
+    )
+
+    assert forward["spec"]["source"]["cluster"] == "cluster-a"
+    assert forward["spec"]["destination"]["cluster"] == "cluster-b"
+    assert session_client_peer(forward) == "10.20.0.11"
+    assert session_client_peer(reverse) == "10.10.0.10"
+
+
+def test_expand_measurement_sessions_rejects_cross_cluster_pod_and_service_modes():
+    for mode in ("pod", "service"):
+        try:
+            expand_measurement_sessions(
+                _cross_cluster_measurement(network_modes=[mode]),
+                _profile(),
+                node_addresses={
+                    ("cluster-a", "worker-a"): "10.10.0.10",
+                    ("cluster-b", "worker-b"): "10.20.0.11",
+                },
+                default_image="iperf_exporter:dev",
+            )
+        except ValueError as exc:
+            assert "host network mode" in str(exc)
+        else:  # pragma: no cover - explicit failure branch
+            raise AssertionError(f"cross-cluster mode {mode!r} should be rejected")
+
+
+def test_generated_workload_names_leave_headroom_for_kubernetes_suffixes():
+    session = next(
+        session
+        for session in expand_measurement_sessions(
+            _cross_cluster_measurement(network_modes=["host"]),
+            _profile(),
+            node_addresses={
+                ("cluster-a", "worker-a"): "10.10.0.10",
+                ("cluster-b", "worker-b"): "10.20.0.11",
+            },
+            default_image="iperf_exporter:dev",
+        )
+        if session["spec"]["direction"] == "sourceToDestination"
+    )
+    session["metadata"]["generation"] = 7
+
+    assert len(session_server_statefulset_name(session)) <= 50
+    assert len(session_client_deployment_name(session)) <= 50
+    assert len(session_headless_service_name(session)) <= 50
+    assert len(session_service_name(session)) <= 50
+    assert len(session_client_job_name(session)) <= 50
 
 
 def test_manifests_reflect_session_topology():

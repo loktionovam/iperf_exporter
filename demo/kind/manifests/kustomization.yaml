@@ -6,6 +6,7 @@ resources:
   - measurementprofiles-crd.yaml
   - linkmeasurements-crd.yaml
   - measurementsessions-crd.yaml
+  - remoteclusters-crd.yaml
   - serviceaccount.yaml
   - clusterrole.yaml
   - clusterrolebinding.yaml

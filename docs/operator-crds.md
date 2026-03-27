@@ -3,6 +3,7 @@
 This document describes the full field surface of the operator MVP CRDs:
 
 - `MeasurementProfile`
+- `RemoteCluster`
 - `LinkMeasurement`
 - generated `MeasurementSession`
 
@@ -61,6 +62,33 @@ Common metadata:
 | `status.protocol` | Resolved protocol from `spec.protocol`. |
 | `status.reconciledAt` | RFC3339 timestamp of the last successful reconcile. |
 
+## RemoteCluster
+
+`RemoteCluster` describes how the primary operator reaches a second Kubernetes
+cluster when a `LinkMeasurement` uses `source.cluster != destination.cluster`.
+
+### `RemoteCluster.spec`
+
+| Field | Type | Required | Default | Meaning |
+| --- | --- | --- | --- | --- |
+| `spec.namespace` | string | no | local `LinkMeasurement` namespace | Namespace in the remote cluster where generated child resources should be created. |
+| `spec.kubeconfigSecretRef` | object | yes | none | Secret reference containing a kubeconfig for the remote cluster. |
+
+### `RemoteCluster.spec.kubeconfigSecretRef`
+
+| Field | Type | Required | Meaning |
+| --- | --- | --- | --- |
+| `name` | string | yes | Name of the Secret in the same namespace as the `RemoteCluster`. |
+| `key` | string | no | Secret data key containing the kubeconfig. The demo uses both `kubeconfig` and `cluster-b.kubeconfig`. |
+
+### `RemoteCluster.status`
+
+| Field | Meaning |
+| --- | --- |
+| `status.phase` | Current connectivity status. Steady-state value is `Ready`. |
+| `status.namespace` | Resolved remote namespace used by the operator. |
+| `status.reconciledAt` | RFC3339 timestamp of the last successful connectivity check. |
+
 ## LinkMeasurement
 
 `LinkMeasurement` is the user-facing intent resource. It describes what to test, between which endpoints, in which modes, and with which execution policy.
@@ -81,7 +109,7 @@ Common metadata:
 
 | Field | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `cluster` | string | no | `"local"` | Logical cluster name. The current MVP only supports same-cluster measurements, but the label is already emitted for future expansion. |
+| `cluster` | string | no | `"local"` | Logical cluster name. Same-cluster measurements may continue to use `local`, but cross-cluster measurements should use explicit names such as `cluster-a` and `cluster-b`. |
 | `nodeName` | string | yes | none | Kubernetes node name on which the workload should run. |
 | `nodeAddress` | string | no | resolved by operator | Internal node IP. Users normally do not set this on `LinkMeasurement`; the operator resolves it when generating `MeasurementSession`. |
 
@@ -109,6 +137,13 @@ Common metadata:
 | `status.profileName` | Resolved referenced profile name. |
 | `status.reconciledAt` | RFC3339 timestamp of the last successful reconcile. |
 | `status.sessions[]` | High-level summary of generated sessions. Each item contains `name`, `sessionId`, `direction`, `networkMode`, `executionMode`, `srcNode`, `dstNode`, `protocol`, and `clientPeer`. |
+
+Cross-cluster rule:
+
+- when `source.cluster != destination.cluster`, only `networkModes: ["host"]`
+  is currently valid
+- `pod` and `service` are rejected because this MVP assumes those networks are
+  not routable between clusters
 
 ## MeasurementSession
 

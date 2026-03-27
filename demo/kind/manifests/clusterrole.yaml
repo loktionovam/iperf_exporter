@@ -9,6 +9,7 @@ rules:
       - measurementprofiles
       - linkmeasurements
       - measurementsessions
+      - remoteclusters
     verbs:
       - get
       - list
@@ -23,9 +24,11 @@ rules:
       - measurementprofiles/status
       - linkmeasurements/status
       - measurementsessions/status
+      - remoteclusters/status
       - measurementprofiles/finalizers
       - linkmeasurements/finalizers
       - measurementsessions/finalizers
+      - remoteclusters/finalizers
     verbs:
       - get
       - update
@@ -35,6 +38,8 @@ rules:
     resources:
       - services
       - nodes
+      - secrets
+      - namespaces
       - events
     verbs:
       - get

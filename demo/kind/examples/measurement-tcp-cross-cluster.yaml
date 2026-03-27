@@ -1,22 +1,20 @@
 apiVersion: netperf.iperfexporter.io/v1alpha1
 kind: LinkMeasurement
 metadata:
-  name: udp-demo
+  name: tcp-cross-cluster-demo
   namespace: iperf-exporter-demo
 spec:
-  profileRef: udp-quality-continuous
+  profileRef: tcp-quality-cross-cluster
   source:
     cluster: cluster-a
     nodeName: iperf-demo-worker
   destination:
-    cluster: cluster-a
-    nodeName: iperf-demo-worker2
+    cluster: cluster-b
+    nodeName: iperf-demo-remote-worker
   directions:
     - sourceToDestination
     - destinationToSource
   networkModes:
     - host
-    - pod
-    - service
   execution:
     mode: continuous

@@ -117,6 +117,7 @@ There are now two demo catalogs under [demo/README.md](./demo/README.md):
 Implemented controller scope:
 
 - `MeasurementProfile`
+- `RemoteCluster`
 - `LinkMeasurement`
 - generated `MeasurementSession`
 - `execution.mode: continuous`
@@ -124,6 +125,7 @@ Implemented controller scope:
 - `execution.mode: periodicProbe`
 - `networkModes: host | pod | service`
 - bidirectional expansion into separate sessions
+- cross-cluster `host` measurements through a `RemoteCluster` kubeconfig
 
 The profile is intentionally mapped to the exporter surface directly, so
 `MeasurementProfile.spec.exporter` can set every exporter runtime option
@@ -165,10 +167,10 @@ metadata:
 spec:
   profileRef: tcp-quality-continuous
   source:
-    cluster: local
+    cluster: cluster-a
     nodeName: iperf-demo-worker
   destination:
-    cluster: local
+    cluster: cluster-a
     nodeName: iperf-demo-worker2
   directions:
     - sourceToDestination
@@ -190,6 +192,47 @@ Other supported execution modes:
   Keeps the server running and repeats a bounded client measurement every
   `execution.every`.
 
+Cross-cluster host-only example:
+
+```yaml
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: RemoteCluster
+metadata:
+  name: cluster-b
+spec:
+  namespace: iperf-exporter-demo
+  kubeconfigSecretRef:
+    name: cluster-b-kubeconfig
+    key: kubeconfig
+---
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: LinkMeasurement
+metadata:
+  name: tcp-cross-cluster-demo
+spec:
+  profileRef: tcp-quality-cross-cluster
+  source:
+    cluster: cluster-a
+    nodeName: iperf-demo-worker
+  destination:
+    cluster: cluster-b
+    nodeName: iperf-demo-remote-worker
+  directions:
+    - sourceToDestination
+    - destinationToSource
+  networkModes:
+    - host
+  execution:
+    mode: continuous
+```
+
+Cross-cluster note:
+
+- `host` is currently the only supported `networkMode` when
+  `source.cluster != destination.cluster`
+- `pod` and `service` remain single-cluster-only unless those networks are
+  intentionally routed between clusters
+
 Bring up the demo cluster:
 
 ```sh
@@ -201,6 +244,7 @@ This also installs:
 - Prometheus at `http://prometheus.127.0.0.1.nip.io:8080`
 - Grafana at `http://grafana.127.0.0.1.nip.io:8080`
 - the provisioned dashboards `iperf-exporter-overview`, `iperf-exporter-tcp-quality`, `iperf-exporter-udp-quality`
+- a second kind cluster used by the `tcp-cross-cluster-demo` example
 
 The kind demo builds two separate images:
 
@@ -218,6 +262,10 @@ Kind demo example resources:
 - oneshot probes with higher bandwidth:
   - [measurement-tcp-probe.yaml](./demo/kind/examples/measurement-tcp-probe.yaml)
   - [measurement-udp-probe.yaml](./demo/kind/examples/measurement-udp-probe.yaml)
+- cross-cluster:
+  - [remote-cluster-b.yaml](./demo/kind/examples/remote-cluster-b.yaml)
+  - [profile-tcp-quality-cross-cluster.yaml](./demo/kind/examples/profile-tcp-quality-cross-cluster.yaml)
+  - [measurement-tcp-cross-cluster.yaml](./demo/kind/examples/measurement-tcp-cross-cluster.yaml)
 
 Reusable non-demo profiles:
 
@@ -227,6 +275,7 @@ Verify created entities:
 
 ```sh
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get measurementprofiles
+kubectl --context kind-iperf-demo -n iperf-exporter-demo get remoteclusters
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get linkmeasurements
 kubectl --context kind-iperf-demo -n iperf-exporter-demo get measurementsessions
 ```

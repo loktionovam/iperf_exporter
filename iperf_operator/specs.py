@@ -16,6 +16,8 @@ SUPPORTED_DIRECTIONS = set(DEFAULT_DIRECTIONS)
 SUPPORTED_NETWORK_MODES = {"host", "pod", "service"}
 SUPPORTED_EXECUTION_MODES = {"continuous", "probe", "periodicProbe"}
 SUPPORTED_PROTOCOLS = {"tcp", "udp"}
+LEGACY_RESOURCE_NAME_MAX_LENGTH = 63
+RESOURCE_NAME_MAX_LENGTH = 50
 
 LABEL_PREFIX = "netperf.iperfexporter.io/"
 SESSION_LABEL_KEYS = {
@@ -193,6 +195,16 @@ def normalize_endpoint(endpoint: dict | None, field_name: str) -> dict:
     }
 
 
+def _resolve_node_address(node_addresses, cluster_name: str, node_name: str) -> str:
+    if (cluster_name, node_name) in node_addresses:
+        return node_addresses[(cluster_name, node_name)]
+    if node_name in node_addresses:
+        return node_addresses[node_name]
+    raise ValueError(
+        f"Missing node address for endpoint {cluster_name!r}/{node_name!r}"
+    )
+
+
 def resolve_profile(profile: dict) -> dict:
     if profile.get("kind") != "MeasurementProfile":
         raise ValueError("Profile kind must be MeasurementProfile")
@@ -226,10 +238,12 @@ def expand_measurement_sessions(
 
     source = normalize_endpoint(spec.get("source"), "source")
     destination = normalize_endpoint(spec.get("destination"), "destination")
-    source["nodeAddress"] = node_addresses[source["nodeName"]]
-    destination["nodeAddress"] = node_addresses[destination["nodeName"]]
-    if source["cluster"] != destination["cluster"]:
-        raise ValueError("Only single-cluster measurements are supported in this MVP")
+    source["nodeAddress"] = source["nodeAddress"] or _resolve_node_address(
+        node_addresses, source["cluster"], source["nodeName"]
+    )
+    destination["nodeAddress"] = destination["nodeAddress"] or _resolve_node_address(
+        node_addresses, destination["cluster"], destination["nodeName"]
+    )
 
     directions = tuple(spec.get("directions") or DEFAULT_DIRECTIONS)
     for direction in directions:
@@ -240,6 +254,13 @@ def expand_measurement_sessions(
     for network_mode in network_modes:
         if network_mode not in SUPPORTED_NETWORK_MODES:
             raise ValueError(f"Unsupported network mode: {network_mode}")
+
+    if source["cluster"] != destination["cluster"] and any(
+        network_mode != "host" for network_mode in network_modes
+    ):
+        raise ValueError(
+            "Cross-cluster measurements currently support only host network mode"
+        )
 
     execution = normalize_execution(spec.get("execution"))
     runtime = normalize_runtime(spec.get("runtime"), default_image=default_image)
@@ -365,8 +386,18 @@ def build_exporter_env(
     return env
 
 
-def session_resource_name(session: dict, suffix: str) -> str:
-    return stable_name(session["metadata"]["name"], suffix)
+def session_resource_name(
+    session: dict, suffix: str, *, max_length: int = RESOURCE_NAME_MAX_LENGTH
+) -> str:
+    return stable_name(session["metadata"]["name"], suffix, max_length=max_length)
+
+
+def legacy_session_resource_name(session: dict, suffix: str) -> str:
+    return session_resource_name(
+        session,
+        suffix,
+        max_length=LEGACY_RESOURCE_NAME_MAX_LENGTH,
+    )
 
 
 def session_selector_labels(session: dict, role: str) -> dict[str, str]:
@@ -397,21 +428,52 @@ def session_headless_service_name(session: dict) -> str:
     return session_resource_name(session, "headless")
 
 
+def legacy_session_headless_service_name(session: dict) -> str:
+    return legacy_session_resource_name(session, "headless")
+
+
 def session_service_name(session: dict) -> str:
     return session_resource_name(session, "service")
+
+
+def legacy_session_service_name(session: dict) -> str:
+    return legacy_session_resource_name(session, "service")
 
 
 def session_server_statefulset_name(session: dict) -> str:
     return session_resource_name(session, "server")
 
 
+def legacy_session_server_statefulset_name(session: dict) -> str:
+    return legacy_session_resource_name(session, "server")
+
+
 def session_client_deployment_name(session: dict) -> str:
     return session_resource_name(session, "client")
 
 
+def legacy_session_client_deployment_name(session: dict) -> str:
+    return legacy_session_resource_name(session, "client")
+
+
 def session_client_job_name(session: dict) -> str:
     generation = str(session.get("metadata", {}).get("generation", "1"))
-    return stable_name(session["metadata"]["name"], "client", generation)
+    return stable_name(
+        session["metadata"]["name"],
+        "client",
+        generation,
+        max_length=RESOURCE_NAME_MAX_LENGTH,
+    )
+
+
+def legacy_session_client_job_name(session: dict) -> str:
+    generation = str(session.get("metadata", {}).get("generation", "1"))
+    return stable_name(
+        session["metadata"]["name"],
+        "client",
+        generation,
+        max_length=LEGACY_RESOURCE_NAME_MAX_LENGTH,
+    )
 
 
 def session_client_peer(session: dict) -> str:
@@ -437,6 +499,8 @@ def session_summary(session: dict) -> dict:
         "executionMode": session["spec"].get("execution", {}).get("mode", ""),
         "srcNode": session["spec"]["source"]["nodeName"],
         "dstNode": session["spec"]["destination"]["nodeName"],
+        "srcCluster": session["spec"]["source"].get("cluster", ""),
+        "dstCluster": session["spec"]["destination"].get("cluster", ""),
         "protocol": session["spec"]["protocol"],
         "clientPeer": session_client_peer(session),
     }

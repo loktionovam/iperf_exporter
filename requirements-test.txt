@@ -1,6 +1,5 @@
 responses~=0.16.0
 pytest_testinfra~=10.2.2
-testinfra~=6.0.0
 pytest~=8.4.2
 pytest-cov~=7.1.0
 psutil
