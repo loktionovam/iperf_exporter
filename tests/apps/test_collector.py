@@ -62,6 +62,14 @@ class FakeServer:
         self.running = running
         self.restart_count = restart_count
         self.last_exit_code = last_exit_code
+        self.connections_total = 0
+        self.samples_total = 0
+        self.parse_errors_total = 0
+        self.samples_evicted_total = {}
+        self.test_runs_total = {}
+        self.last_connection_timestamp_seconds = None
+        self.last_sample_timestamp_seconds = None
+        self.last_test_success_timestamp_seconds = None
         self.runtime_settings = runtime_settings or SimpleNamespace()
         self.len = len_value
         self.additional_params = additional_params
@@ -87,23 +95,34 @@ class FakeServer:
 
 
 class FakeSocketStatsCollector:
-    def __init__(self, snapshots):
+    def __init__(self, snapshots, health=None):
         self.snapshots = snapshots
+        self.health = health or {}
         self.collect_called = False
 
     def collect(self):
         self.collect_called = True
         return self.snapshots
 
+    def health_snapshot(self):
+        return self.health
+
 
 class FakePathTraceCollector:
-    def __init__(self, snapshots):
+    def __init__(self, snapshots, health=None):
         self.snapshots = snapshots
+        self.health = health or {}
         self.collect_called = False
 
     def collect(self, output):
         self.collect_called = True
         return self.snapshots
+
+    def close(self):
+        pass
+
+    def health_snapshot(self):
+        return self.health
 
 
 class TestIPerfCollector(TestCase):
@@ -128,6 +147,17 @@ class TestIPerfCollector(TestCase):
             proto="udp",
             runtime_settings=server.runtime_settings,
             len_value="1280",
+        )
+        fake_server.connections_total = server.connections_total
+        fake_server.samples_total = server.samples_total
+        fake_server.parse_errors_total = server.parse_errors_total
+        fake_server.test_runs_total = server.test_runs_total
+        fake_server.last_connection_timestamp_seconds = (
+            server.last_connection_timestamp_seconds
+        )
+        fake_server.last_sample_timestamp_seconds = server.last_sample_timestamp_seconds
+        fake_server.last_test_success_timestamp_seconds = (
+            server.last_test_success_timestamp_seconds
         )
         fake_socket_stats = FakeSocketStatsCollector(
             {
@@ -155,7 +185,6 @@ class TestIPerfCollector(TestCase):
                         PathTraceHop(
                             hop_index=1,
                             hop_address="127.0.0.2",
-                            hop_summary="0.031ms reached",
                         )
                     ],
                 )
@@ -205,6 +234,59 @@ class TestIPerfCollector(TestCase):
                 "iperf_exporter_iperf_process_up",
                 labels={"mode": "server", "proto": "udp", **EMPTY_CONTEXT_LABELS},
             ),
+        )
+        runtime_labels = {"proto": "udp", **EMPTY_CONTEXT_LABELS}
+        self.assertEqual(
+            1.0,
+            registry.get_sample_value(
+                "iperf_exporter_active_streams",
+                labels=runtime_labels,
+            ),
+        )
+        self.assertEqual(
+            1.0,
+            registry.get_sample_value(
+                "iperf_exporter_connections_total",
+                labels=runtime_labels,
+            ),
+        )
+        self.assertEqual(
+            1.0,
+            registry.get_sample_value(
+                "iperf_exporter_samples_total",
+                labels=runtime_labels,
+            ),
+        )
+        self.assertEqual(
+            1.0,
+            registry.get_sample_value(
+                "iperf_exporter_test_runs_total",
+                labels={
+                    "proto": "udp",
+                    "result": "success",
+                    **EMPTY_CONTEXT_LABELS,
+                },
+            ),
+        )
+        self.assertEqual(
+            5516.0,
+            registry.get_sample_value(
+                "iperf_exporter_test_duration_seconds",
+                labels=labels,
+            ),
+        )
+        self.assertGreater(
+            registry.get_sample_value(
+                "iperf_exporter_sample_timestamp_seconds",
+                labels=runtime_labels,
+            ),
+            0,
+        )
+        self.assertIsNotNone(
+            registry.get_sample_value(
+                "iperf_exporter_collector_duration_seconds",
+                labels={"collector": "exporter", **EMPTY_CONTEXT_LABELS},
+            )
         )
         self.assertEqual(
             0.0,
@@ -260,7 +342,6 @@ class TestIPerfCollector(TestCase):
                     "trace_direction": "server_to_client",
                     "hop_index": "1",
                     "hop_address": "127.0.0.2",
-                    "hop_summary": "0.031ms reached",
                 },
             ),
         )
@@ -301,6 +382,8 @@ class TestIPerfCollector(TestCase):
                         "rcvmss_bytes": 1448.0,
                         "advmss_bytes": 1448.0,
                         "bytes_received": 249430080.0,
+                        "bytes_retransmitted_total": 4096.0,
+                        "retransmissions_total": 3.0,
                         "send_rate_bps": 4_826_666_667.0,
                         "pacing_rate_bps": 9_313_768_840.0,
                         "delivery_rate_bps": 3_861_333_328.0,
@@ -326,12 +409,10 @@ class TestIPerfCollector(TestCase):
                         PathTraceHop(
                             hop_index=1,
                             hop_address="10.0.0.1",
-                            hop_summary="0.102ms",
                         ),
                         PathTraceHop(
                             hop_index=2,
                             hop_address="45.56.85.133",
-                            hop_summary="0.244ms reached",
                         ),
                     ],
                 )
@@ -414,6 +495,20 @@ class TestIPerfCollector(TestCase):
             ),
         )
         self.assertEqual(
+            4096.0,
+            registry.get_sample_value(
+                "iperf_exporter_tcp_socket_bytes_retransmitted_total",
+                labels=labels,
+            ),
+        )
+        self.assertEqual(
+            3.0,
+            registry.get_sample_value(
+                "iperf_exporter_tcp_socket_retransmissions_total",
+                labels=labels,
+            ),
+        )
+        self.assertEqual(
             1.0,
             registry.get_sample_value(
                 "iperf_exporter_tcp_socket_app_limited",
@@ -478,7 +573,6 @@ class TestIPerfCollector(TestCase):
                     "trace_direction": "server_to_client",
                     "hop_index": "2",
                     "hop_address": "45.56.85.133",
-                    "hop_summary": "0.244ms reached",
                 },
             ),
         )

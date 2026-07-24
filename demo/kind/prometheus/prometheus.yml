@@ -31,6 +31,24 @@ scrape_configs:
       - source_labels: [__meta_kubernetes_pod_name]
         target_label: kubernetes_pod
 
+  - job_name: iperf-operator
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - iperf-exporter-demo
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        regex: iperf-exporter-operator
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: metrics
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod
+
   - job_name: iperf-exporter-remote
     kubernetes_sd_configs:
       - role: endpoints

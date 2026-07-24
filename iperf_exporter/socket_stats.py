@@ -1,5 +1,7 @@
 import re
 import subprocess
+import time
+from collections import Counter
 from dataclasses import dataclass, field
 
 from iperf_exporter.logger import log
@@ -90,6 +92,7 @@ def _parse_tcp_detail_line(line: str) -> tuple[str, bool, dict[str, float]]:
         "bytes_sent": "bytes_sent",
         "bytes_acked": "bytes_acked",
         "bytes_received": "bytes_received",
+        "bytes_retrans": "bytes_retransmitted_total",
         "segs_out": "segs_out",
         "segs_in": "segs_in",
         "data_segs_out": "data_segs_out",
@@ -129,6 +132,9 @@ def _parse_tcp_detail_line(line: str) -> tuple[str, bool, dict[str, float]]:
                 rtt, rttvar = value.split("/", 1)
                 metric_values["rtt_milliseconds"] = float(rtt)
                 metric_values["rttvar_milliseconds"] = float(rttvar)
+            elif key == "retrans":
+                _, retransmissions_total = value.split("/", 1)
+                metric_values["retransmissions_total"] = float(retransmissions_total)
             elif key in direct_metrics:
                 metric_values[direct_metrics[key]] = float(value)
             index += 1
@@ -160,31 +166,63 @@ class TCPSocketSnapshot(SocketSnapshot):
 
 
 class SocketStatsCollector:
-    def __init__(self, port, proto, runner=subprocess.run, ss_binary="ss"):
+    def __init__(
+        self,
+        port,
+        proto,
+        runner=subprocess.run,
+        ss_binary="ss",
+        timeout=2,
+    ):
         self.port = str(port)
         self.proto = proto
         self.runner = runner
         self.command = [ss_binary, "-tin" if proto == "tcp" else "-uin"]
+        self.timeout = timeout
         self._availability_warning_sent = False
         self._execution_warning_sent = False
+        self.error_counts = Counter()
+        self.last_duration_seconds = 0.0
+        self.last_success_timestamp_seconds = None
+
+    def _record_duration(self, started_at: float) -> None:
+        self.last_duration_seconds = time.monotonic() - started_at
+
+    def _record_failure(self, started_at: float, reason: str) -> None:
+        self._record_duration(started_at)
+        self.error_counts[reason] += 1
 
     def collect(self):
+        started_at = time.monotonic()
         try:
             result = self.runner(
                 self.command,
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=self.timeout,
             )
         except FileNotFoundError:
+            self._record_failure(started_at, "unavailable")
             if not self._availability_warning_sent:
                 log.warning(
                     f"Socket metrics are disabled because {' '.join(self.command)} is unavailable"
                 )
                 self._availability_warning_sent = True
             return {}
+        except subprocess.TimeoutExpired:
+            self._record_failure(started_at, "timeout")
+            if not self._execution_warning_sent:
+                log.warning(
+                    "Socket metrics are disabled because %s timed out after %ss",
+                    " ".join(self.command),
+                    self.timeout,
+                )
+                self._execution_warning_sent = True
+            return {}
 
         if result.returncode != 0:
+            self._record_failure(started_at, "command")
             if not self._execution_warning_sent:
                 stderr = (result.stderr or "").strip()
                 log.warning(
@@ -194,7 +232,16 @@ class SocketStatsCollector:
             return {}
 
         self._execution_warning_sent = False
+        self._record_duration(started_at)
+        self.last_success_timestamp_seconds = time.time()
         return self._parse_output(result.stdout)
+
+    def health_snapshot(self) -> dict:
+        return {
+            "error_counts": dict(self.error_counts),
+            "last_duration_seconds": self.last_duration_seconds,
+            "last_success_timestamp_seconds": self.last_success_timestamp_seconds,
+        }
 
     def _parse_output(self, raw_output: str):
         snapshots = {}

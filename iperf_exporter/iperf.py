@@ -6,6 +6,7 @@ import subprocess
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections import Counter
 from dataclasses import dataclass, field
 
 from iperf_exporter.logger import log
@@ -180,7 +181,6 @@ class IPerf(ABC):
         self._process = None
         self._process_lock = threading.Lock()
         self._raw_stdout = None
-        self._raw_stderr = None
         self.start_time = None
         self.last_exit_code = None
         self.last_restart_time = None
@@ -212,12 +212,11 @@ class IPerf(ABC):
         self._process = self.process_factory(
             self.command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             bufsize=1,
             universal_newlines=True,
         )
         _ensure_non_blocking(getattr(self._process, "stdout", None))
-        _ensure_non_blocking(getattr(self._process, "stderr", None))
         self.start_time = time.time()
         return self._process
 
@@ -267,6 +266,29 @@ class IPerf(ABC):
             self.last_exit_code = exit_code
             return exit_code
 
+    def stop(self, timeout: float = 1) -> None:
+        with self._process_lock:
+            process = self._process
+            if process is None:
+                return
+
+            try:
+                if hasattr(process, "poll") and process.poll() is None:
+                    if hasattr(process, "terminate"):
+                        process.terminate()
+                    if hasattr(process, "wait"):
+                        try:
+                            self.last_exit_code = process.wait(timeout=timeout)
+                        except subprocess.TimeoutExpired:
+                            if hasattr(process, "kill"):
+                                process.kill()
+                            self.last_exit_code = process.wait(timeout=timeout)
+            except OSError:
+                log.debug("Failed to stop iperf process cleanly")
+            finally:
+                self._close_process_streams(process)
+                self._process = None
+
 
 @dataclass
 class IPerfServerPeerOutput:
@@ -276,7 +298,7 @@ class IPerfServerPeerOutput:
     local_port: str
     peer_address: str
     peer_port: str
-    metric_ttl: int = 604800
+    metric_ttl: int = 3600
     current_metric_ttl: int = field(init=False)
     interval_start: str | None = None
     interval_end: str | None = None
@@ -287,6 +309,9 @@ class IPerfServerPeerOutput:
     initial_cwnd_segments: str = ""
     initial_mss_bytes: str = ""
     initial_rtt_microseconds: str = ""
+    last_sample_timestamp_seconds: float | None = None
+    test_duration_seconds: float | None = None
+    successful_report_seen: bool = False
 
     def __post_init__(self):
         self.current_metric_ttl = self.metric_ttl
@@ -597,6 +622,14 @@ class IPerfServer(IPerf):
         self.watchdog_interval = watchdog_interval
         self.output = {}
         self.tcp_histograms = {}
+        self.connections_total = 0
+        self.samples_total = 0
+        self.parse_errors_total = 0
+        self.samples_evicted_total = Counter()
+        self.test_runs_total = Counter()
+        self.last_connection_timestamp_seconds = None
+        self.last_sample_timestamp_seconds = None
+        self.last_test_success_timestamp_seconds = None
         self.runtime_settings = IPerfServerRuntimeSettings(listen_port=str(port))
         self._stop_cleanup = threading.Event()
         self._lock = threading.Lock()
@@ -652,29 +685,25 @@ class IPerfServer(IPerf):
             self.watchdog_thread.start()
         return self._process
 
+    def ensure_running(self) -> bool:
+        previous_restart_count = self.restart_count
+        process_started = super().ensure_running()
+        if self.restart_count > previous_restart_count:
+            self.test_runs_total["error"] += self.restart_count - previous_restart_count
+        return process_started
+
     def stop(self):
         self._stop_cleanup.set()
+        super().stop()
 
         if self._loop is not None and self._loop.is_running():
             self._loop.call_soon_threadsafe(lambda: None)
 
         if self.cleanup_thread is not None and self.cleanup_thread.is_alive():
-            self.cleanup_thread.join(timeout=2)
+            self.cleanup_thread.join(timeout=1)
 
         if self.watchdog_thread is not None and self.watchdog_thread.is_alive():
-            self.watchdog_thread.join(timeout=2)
-
-        with self._process_lock:
-            if self._process is not None and hasattr(self._process, "poll"):
-                try:
-                    if self._process.poll() is None and hasattr(
-                        self._process, "terminate"
-                    ):
-                        self._process.terminate()
-                except OSError:
-                    log.debug("Failed to terminate iperf server process cleanly")
-            if self._process is not None:
-                self._close_process_streams(self._process)
+            self.watchdog_thread.join(timeout=1)
 
     def read_output(self):
         with self._process_lock:
@@ -694,7 +723,8 @@ class IPerfServer(IPerf):
                 break
 
     async def periodically_remove_dead_clients(self):
-        await asyncio.sleep(self.cleanup_startup_delay)
+        if await self._wait_for_cleanup_stop(self.cleanup_startup_delay):
+            return
         while not self._stop_cleanup.is_set():
             with self._lock:
                 alive_metrics = {}
@@ -706,6 +736,11 @@ class IPerfServer(IPerf):
                 removed_peer_ids = set(self.output.keys()) - set(alive_metrics.keys())
                 if removed_peer_ids:
                     log.info(f"Removed peer ids: {removed_peer_ids = }")
+                    self.samples_evicted_total["ttl"] += len(removed_peer_ids)
+                    self.test_runs_total["timeout"] += sum(
+                        not self.output[peer_id].successful_report_seen
+                        for peer_id in removed_peer_ids
+                    )
 
                 self.output = alive_metrics
                 if self.tcp_histograms:
@@ -714,7 +749,34 @@ class IPerfServer(IPerf):
                         for key, value in self.tcp_histograms.items()
                         if value.peer_id in alive_metrics
                     }
-            await asyncio.sleep(self.cleanup_interval)
+            if await self._wait_for_cleanup_stop(self.cleanup_interval):
+                return
+
+    async def _wait_for_cleanup_stop(self, timeout: float) -> bool:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while not self._stop_cleanup.is_set():
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return False
+            await asyncio.sleep(min(remaining, 0.1))
+        return True
+
+    def _record_successful_sample(self, peer_id: str, interval_end: str) -> None:
+        now = time.time()
+        peer = self.output[peer_id]
+        peer.last_sample_timestamp_seconds = now
+        peer.test_duration_seconds = float(interval_end)
+        self.samples_total += 1
+        self.last_sample_timestamp_seconds = now
+        if peer.successful_report_seen:
+            return
+        peer.successful_report_seen = True
+        self.test_runs_total["success"] += 1
+        self.last_test_success_timestamp_seconds = now
+
+    def _record_parse_error(self) -> None:
+        self.parse_errors_total += 1
 
     def start_async_loop(self):
         asyncio.set_event_loop(self._loop)
@@ -809,6 +871,7 @@ class IPerfServer(IPerf):
                 latency_values = _parse_udp_latency_field(match.group(10))
                 netpwr = _extract_trailing_numeric_value(match.group(12))
                 if latency_values is None or netpwr is None:
+                    self._record_parse_error()
                     log.debug(
                         f"Ignoring unsupported UDP report line: {self._raw_stdout}"
                     )
@@ -831,7 +894,9 @@ class IPerfServer(IPerf):
                             pps=match.group(11),
                             netpwr=netpwr,
                         )
+                        self._record_successful_sample(peer_id, match.group(3))
                     except (KeyError, ValueError, IndexError):
+                        self._record_parse_error()
                         log.error(
                             f"Can't update metric {peer_id = } because it doesn't exist"
                         )
@@ -862,7 +927,12 @@ class IPerfServer(IPerf):
                             ),
                             netpwr=trip_times_match.group(13),
                         )
+                        self._record_successful_sample(
+                            peer_id,
+                            trip_times_match.group(3),
+                        )
                     except (KeyError, ValueError, IndexError):
+                        self._record_parse_error()
                         log.error(
                             f"Can't update metric {peer_id = } because it doesn't exist"
                         )
@@ -875,28 +945,30 @@ class IPerfServer(IPerf):
                     try:
                         peer_output = self.output[peer_id]
                         histogram_name = histogram_match.group(4)
-                        self.tcp_histograms[
-                            f"{peer_id}:{histogram_name}"
-                        ] = IPerfServerTCPHistogramOutput(
-                            peer_id=peer_id,
-                            local_address=peer_output.local_address,
-                            interface_name=peer_output.interface_name,
-                            local_port=peer_output.local_port,
-                            peer_address=peer_output.peer_address,
-                            peer_port=peer_output.peer_port,
-                            histogram_name=histogram_name,
-                            bin_width_seconds=_parse_iperf_histogram_width_to_seconds(
-                                histogram_match.group(5)
-                            ),
-                            sample_count=int(histogram_match.group(6)),
-                            bins=_parse_histogram_bins(histogram_match.group(7)),
+                        self.tcp_histograms[f"{peer_id}:{histogram_name}"] = (
+                            IPerfServerTCPHistogramOutput(
+                                peer_id=peer_id,
+                                local_address=peer_output.local_address,
+                                interface_name=peer_output.interface_name,
+                                local_port=peer_output.local_port,
+                                peer_address=peer_output.peer_address,
+                                peer_port=peer_output.peer_port,
+                                histogram_name=histogram_name,
+                                bin_width_seconds=_parse_iperf_histogram_width_to_seconds(
+                                    histogram_match.group(5)
+                                ),
+                                sample_count=int(histogram_match.group(6)),
+                                bins=_parse_histogram_bins(histogram_match.group(7)),
+                            )
                         )
                     except KeyError:
+                        self._record_parse_error()
                         log.error(
                             f"Can't update tcp histogram {peer_id = } because it doesn't exist"
                         )
                         return
                     except ValueError:
+                        self._record_parse_error()
                         log.warning(
                             f"Can't parse tcp histogram line safely: {self._raw_stdout}"
                         )
@@ -915,7 +987,9 @@ class IPerfServer(IPerf):
                             reads=match.group(6),
                             reads_distribution=match.group(7),
                         )
+                        self._record_successful_sample(peer_id, match.group(3))
                     except (KeyError, ValueError, IndexError):
+                        self._record_parse_error()
                         log.error(
                             f"Can't update metric {peer_id = } because it doesn't exist"
                         )
@@ -923,12 +997,19 @@ class IPerfServer(IPerf):
 
         match = IPerfParserNewConnection(self._raw_stdout).match()
         if not match:
+            if re.match(
+                r"^\[\s*\d+\]\s+\d+\.\d+-\d+\.\d+\s+sec\b",
+                self._raw_stdout,
+            ):
+                self._record_parse_error()
             return
 
         peer_id = match.group(1).strip()
         log.info(f"Found new client {peer_id = }")
         connection_metadata = _parse_connection_metadata(match.group(7))
         with self._lock:
+            self.connections_total += 1
+            self.last_connection_timestamp_seconds = time.time()
             self.output[peer_id] = self.output_cls(
                 peer_id=peer_id,
                 local_address=match.group(2),
@@ -942,7 +1023,7 @@ class IPerfServer(IPerf):
 
 
 if __name__ == "__main__":
-    server = IPerfServer(5001, "udp", 1280, 1, 604800)
+    server = IPerfServer(5001, "udp", 1280, 1, 3600)
     server.run()
     while True:
         server.read_output()

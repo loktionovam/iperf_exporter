@@ -44,7 +44,6 @@ pip install -r requirements-dev.txt
 
 ```shell
 export IPERF_EXPORTER_SERVER_IMAGE_NAME=yourname/iperf_exporter_server
-export IPERF_EXPORTER_CLIENT_IMAGE_NAME=yourname/iperf_exporter_server
 export IPERF_EXPORTER_IMAGE_TAG=0.1.0
 
 make build-images
@@ -55,11 +54,9 @@ make test-images
 
 #### Helm
 
-Install the ServiceMonitor CRD:
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.63.0/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
-```
+The chart does not create a `ServiceMonitor` by default. If Prometheus Operator is
+installed, enable it with `--set serviceMonitor.enabled=true` and add any labels
+required by your Prometheus selector through `serviceMonitor.additionalLabels`.
 
 Add the chart repository:
 
@@ -72,13 +69,16 @@ helm search repo --versions iperf-exporter
 Deploy a release:
 
 ```shell
-helm upgrade --install iperf-exporter-server . --set image.tag=0.1.0-1-g7a5bfb6
+helm upgrade --install iperf-exporter-server \
+  iperf-exporter/iperf-exporter-server \
+  --set image.tag=0.1.0-1-g7a5bfb6
 ```
 
 Optionally enable an in-cluster client workload and place server/client on different nodes:
 
 ```shell
-helm upgrade --install iperf-exporter-server . \
+helm upgrade --install iperf-exporter-server \
+  iperf-exporter/iperf-exporter-server \
   --set image.tag=0.1.0-1-g7a5bfb6 \
   --set server.nodeSelector.node-role\\.kubernetes\\.io/infra=true \
   --set client.enabled=true \
@@ -92,7 +92,7 @@ helm upgrade --install iperf-exporter-server . \
 Check the exporter:
 
 ```shell
-kubectl port-forward svc/iperf-exporter-server 9868:9868
+kubectl port-forward svc/iperf-exporter-server-iperf-exporter-server-server 9868:9868
 curl http://localhost:9868/metrics
 ```
 
@@ -101,13 +101,16 @@ curl http://localhost:9868/metrics
 Run with environment variables:
 
 ```shell
-docker run -p 9867:9867 -d yourname/iperf_exporter_server:0.1.0
+docker run -p 9868:9868 -d yourname/iperf_exporter_server:0.1.0
 
 # Get the metrics
-curl http://localhost:9867/metrics/
+curl http://localhost:9868/metrics
 ```
 
 ## Kubernetes operator MVP
+
+The `v1alpha1` operator remains experimental. Its API may change incompatibly
+before a stable release.
 
 There are now two demo catalogs under [demo/README.md](./demo/README.md):
 
@@ -186,8 +189,8 @@ spec:
 Other supported execution modes:
 
 - `probe`
-  Runs one bounded client measurement and exits. In the kind demo these examples
-  use higher burst bandwidth profiles.
+  Runs one bounded client measurement and keeps the completed or failed Job.
+  The same generation runs again only after that Job is explicitly deleted.
 - `periodicProbe`
   Keeps the server running and repeats a bounded client measurement every
   `execution.every`.
@@ -344,7 +347,7 @@ These metrics are sampled with `tracepath -n` from the exporter/server network n
 | `iperf_exporter_udp_path_trace_success` | bool | `1` when the last cached `tracepath` run reached the peer/client address. |
 | `iperf_exporter_udp_path_trace_pmtu_bytes` | bytes | Path MTU reported by `tracepath`. |
 | `iperf_exporter_udp_path_trace_hops_total` | hops | Hop count reported by `tracepath`. |
-| `iperf_exporter_udp_path_trace_hop_info` | info | Gauge with constant value `1`. Labels carry one hop from the last cached trace snapshot: `trace_direction`, `hop_index`, `hop_address` and `hop_summary`. |
+| `iperf_exporter_udp_path_trace_hop_info` | info | Gauge with constant value `1`. Labels carry one hop from the last cached trace snapshot: `trace_direction`, `hop_index` and `hop_address`. |
 
 ### UDP socket metrics
 
@@ -407,7 +410,7 @@ These metrics are sampled with `tracepath -n` from the exporter/server network n
 | `iperf_exporter_tcp_path_trace_success` | bool | `1` when the last cached `tracepath` run reached the peer/client address. |
 | `iperf_exporter_tcp_path_trace_pmtu_bytes` | bytes | Path MTU reported by `tracepath`. |
 | `iperf_exporter_tcp_path_trace_hops_total` | hops | Hop count reported by `tracepath`. |
-| `iperf_exporter_tcp_path_trace_hop_info` | info | Gauge with constant value `1`. Labels carry one hop from the last cached trace snapshot: `trace_direction`, `hop_index`, `hop_address` and `hop_summary`. |
+| `iperf_exporter_tcp_path_trace_hop_info` | info | Gauge with constant value `1`. Labels carry one hop from the last cached trace snapshot: `trace_direction`, `hop_index` and `hop_address`. |
 
 ### TCP socket metrics
 
@@ -431,6 +434,8 @@ These metrics are server-side kernel socket snapshots collected from `ss -tin` a
 | `iperf_exporter_tcp_socket_bytes_sent` | bytes | Total bytes sent on the socket according to `ss`. |
 | `iperf_exporter_tcp_socket_bytes_acked` | bytes | Total bytes acknowledged on the socket according to `ss`. |
 | `iperf_exporter_tcp_socket_bytes_received` | bytes | Total bytes received on the socket according to `ss`. |
+| `iperf_exporter_tcp_socket_bytes_retransmitted_total` | bytes | Total retransmitted bytes for the current socket according to `ss`. |
+| `iperf_exporter_tcp_socket_retransmissions_total` | retransmissions | Total retransmissions for the current socket according to `ss`. |
 | `iperf_exporter_tcp_socket_segs_out` | segments | Total TCP segments sent according to `ss`. |
 | `iperf_exporter_tcp_socket_segs_in` | segments | Total TCP segments received according to `ss`. |
 | `iperf_exporter_tcp_socket_data_segs_out` | segments | Total TCP data segments sent according to `ss`. |
@@ -455,53 +460,73 @@ TCP socket notes:
 
 - These values come from `ss -tin`, not from `iperf` interval output. They represent current kernel socket state on the exporter host.
 - Queue, RTT, pacing and window metrics are only emitted while a matching socket exists for the current `connection_pair`.
+- Retransmission counters belong to a socket and reset when that socket is recreated. A useful per-stream ratio is `rate(iperf_exporter_tcp_socket_bytes_retransmitted_total[5m]) / clamp_min(rate(iperf_exporter_tcp_socket_bytes_sent[5m]), 1)`.
 - The exporter is best-effort here: if `ss` is unavailable or returns no matching row, the scrape still succeeds and only the socket metrics are absent.
 
-### Process health metrics
+### Exporter health and lifecycle metrics
 
-These metrics are exporter-wide and describe the supervised child `iperf` process:
+These metrics describe the supervised child `iperf` process, data freshness, test
+outcomes and best-effort collectors. Runtime metrics include the `proto` and
+optional operator context labels. Collector errors use bounded `collector` and
+`reason` labels.
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |
 | `iperf_exporter_iperf_process_up` | `mode`, `proto` | `1` when the supervised `iperf` process is alive, `0` when it is not. |
 | `iperf_exporter_iperf_process_restarts_total` | `mode`, `proto` | Number of automatic restarts performed by the exporter watchdog. |
 | `iperf_exporter_iperf_process_last_exit_code` | `mode`, `proto` | Last observed child process exit code. This metric appears after the first observed exit. |
+| `iperf_exporter_active_streams` | `proto` | Number of peer streams currently retained by the exporter. |
+| `iperf_exporter_connections_total` | `proto` | Client connections observed by the `iperf` server. |
+| `iperf_exporter_samples_total` | `proto` | Valid interval reports parsed from `iperf` output. |
+| `iperf_exporter_parse_errors_total` | `proto` | Interval or histogram lines that could not be parsed safely. |
+| `iperf_exporter_samples_evicted_total` | `proto`, `reason` | Retained stream samples removed from memory. `ttl` is currently the active reason. |
+| `iperf_exporter_test_runs_total` | `proto`, `result` | Observed outcomes. `success` is the first valid report for a connection, `timeout` is TTL eviction before any valid report, and `error` is an `iperf` child restart. |
+| `iperf_exporter_test_duration_seconds` | stream labels | Elapsed duration from the latest `iperf` interval report for each retained stream. |
+| `iperf_exporter_sample_timestamp_seconds` | `proto` | Unix timestamp of the latest valid interval report. |
+| `iperf_exporter_test_last_success_timestamp_seconds` | `proto` | Unix timestamp of the latest connection that produced its first valid report. |
+| `iperf_exporter_last_connection_timestamp_seconds` | `proto` | Unix timestamp of the latest client connection. |
+| `iperf_exporter_start_time_seconds` | `proto` | Unix timestamp when the exporter collector started. |
+| `iperf_exporter_collector_duration_seconds` | `collector` | Duration of the latest `iperf`, `socket`, `path_trace`, or complete exporter collection. |
+| `iperf_exporter_collector_errors_total` | `collector`, `reason` | Collector failures grouped by a bounded reason such as `timeout`, `unavailable`, `command`, or `exception`. |
+| `iperf_exporter_collector_last_success_timestamp_seconds` | `collector` | Unix timestamp of the latest successful collector execution. |
+| `iperf_exporter_path_trace_duration_seconds` | `proto` | Duration of the latest completed background `tracepath` execution. |
+| `iperf_exporter_path_trace_failures_total` | `proto`, `reason` | Background trace failures grouped by `unavailable`, `timeout`, `command`, `parse`, `unreachable`, or `worker`. |
+| `iperf_exporter_path_trace_last_success_timestamp_seconds` | `proto` | Unix timestamp of the latest trace that reached its destination. |
+| `iperf_exporter_path_trace_in_flight` | `proto` | Number of background traces currently running. |
+| `iperf_exporter_build_info` | `version`, `python_version` | Constant `1` with build and Python runtime information. |
+
+The server-side exporter cannot know the exact Kubernetes Job completion time.
+For one-shot probes, use `iperf_operator_probe_duration_seconds` and
+`iperf_operator_probe_runs_total` from the operator endpoint.
 
 ## Grafana
 
-Dashboards are available in:
+| Dashboard | Use it for |
+| --- | --- |
+| [Overview](./grafana/dashboards/iperf-exporter-overview.json) | UDP/TCP traffic, exporter freshness and errors, operator health, probe outcomes and reconciliation latency. |
+| [TCP quality](./grafana/dashboards/iperf-exporter-tcp-quality.json) | Throughput, latency, socket state, test health, retransmissions and retransmitted-byte ratio. |
+| [UDP quality](./grafana/dashboards/iperf-exporter-udp-quality.json) | Throughput, jitter, loss, path trace, test outcomes and exporter errors. |
 
-- [Overview dashboard](./grafana/dashboards/iperf-exporter-overview.json)
-- [UDP quality dashboard](./grafana/dashboards/iperf-exporter-udp-quality.json)
-- [TCP quality dashboard](./grafana/dashboards/iperf-exporter-tcp-quality.json)
+Every panel includes a description. Dashboard variables can scope data by
+measurement topology and, when the metric has stream labels, by
+`Client->Server Pair`.
 
-Dashboard notes:
+The local demo provisions all dashboards from
+[grafana/dashboards](./grafana/dashboards). For another Grafana instance,
+use Grafana's
+[dashboard import flow](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/import-dashboards/).
 
-- Every panel has a Grafana panel description that explains what the metric means and how to read it.
-- The dashboards expose a `Client->Server Pair` variable based on the `connection_pair` label, so you can optionally scope graphs to a single client/server path.
-- The overview dashboard mixes UDP/TCP traffic and exporter health.
-- The UDP quality dashboard starts with `UDP Measurement Context` and `UDP Path Trace` tables so you can see launch parameters, client bandwidth hints and the server-to-client route before looking at jitter/loss graphs.
-- The TCP quality dashboard starts with `TCP Measurement Context` and `TCP Path Trace` tables so you can see launch parameters, parsed peer capabilities, bandwidth limits, congestion control, MSS, PMTU, negotiated window scaling and the server-to-client route before reading the throughput and latency panels.
+### Overview: operator health
 
-Import dashboards as described in the Grafana docs:
+![Grafana Overview operator health](grafana/img/iperf-exporter-overview-health.jpg)
 
-https://grafana.com/docs/grafana/latest/dashboards/export-import/#import-dashboard
+### TCP: freshness and retransmissions
 
-The local demo stack provisions dashboards automatically from [grafana/dashboards](./grafana/dashboards).
+![Grafana TCP freshness and retransmissions](grafana/img/iperf-exporter-tcp-retransmissions.jpg)
 
-Screenshots:
+### UDP: exporter freshness and outcomes
 
-- [Overview screenshot](./grafana/img/iperf-exporter-overview.png)
-- [TCP quality screenshot 1](./grafana/img/iperf-exporter-tcp-quality-1.png)
-- [TCP quality screenshot 2](./grafana/img/iperf-exporter-tcp-quality-2.png)
-- [TCP quality screenshot 3](./grafana/img/iperf-exporter-tcp-quality-3.png)
-- [UDP quality screenshot](./grafana/img/iperf-exporter-udp-quality-1.png)
-
-![Grafana Overview](grafana/img/iperf-exporter-overview.png)
-![Grafana TCP Quality 1](grafana/img/iperf-exporter-tcp-quality-1.png)
-![Grafana TCP Quality 2](grafana/img/iperf-exporter-tcp-quality-2.png)
-![Grafana TCP Quality 3](grafana/img/iperf-exporter-tcp-quality-3.png)
-![Grafana UDP Quality](grafana/img/iperf-exporter-udp-quality-1.png)
+![Grafana UDP exporter freshness and outcomes](grafana/img/iperf-exporter-udp-health.jpg)
 
 ## Developing and testing IPerf exporter
 

@@ -1,13 +1,11 @@
-from unittest import TestCase, mock
-import os
-import importlib
+from unittest import TestCase
+
 import iperf_exporter.logger
 
 
 class TestLogger(TestCase):
-    @mock.patch.dict(os.environ, {"IPERF_EXPORTER_MODE": "server"})
     def test_server_log(self):
-        importlib.reload(iperf_exporter.logger)
+        iperf_exporter.logger.configure_logging(debug=False, mode="server")
         log = iperf_exporter.logger.log
         self.assertEqual(20, log.level)
 
@@ -22,9 +20,8 @@ class TestLogger(TestCase):
             ],
         )
 
-    @mock.patch.dict(os.environ, {"DEBUG": "1", "IPERF_EXPORTER_MODE": "server"})
     def test_server_log_debug(self):
-        importlib.reload(iperf_exporter.logger)
+        iperf_exporter.logger.configure_logging(debug=True, mode="server")
         log = iperf_exporter.logger.log
         self.assertEqual(10, log.level)
 

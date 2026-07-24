@@ -39,7 +39,7 @@ Common metadata:
 | `bindPort` | integer | `9868` | HTTP metrics port exposed by the exporter process. Must be unique per node for `host` mode server sessions. |
 | `interval` | integer | `1` | `iperf` report interval in seconds. |
 | `len` | integer | `1280` | Client payload length passed to `iperf`. |
-| `metricTTL` | integer | `604800` | How long inactive peers remain in exporter state before cleanup. |
+| `metricTTL` | integer | `3600` | How long inactive peers remain in exporter state before cleanup. |
 | `debug` | boolean | `false` | Enables exporter debug logging. |
 | `clientBandwidth` | string | `"1M"` | Client-side rate limit. For TCP it is applied only when it is a positive rate. |
 | `clientDuration` | integer | `315360000` | Client runtime in seconds. Continuous profiles use a large value here. |
@@ -50,9 +50,6 @@ Common metadata:
 | `pathTraceTTL` | integer | `300` | Cache TTL in seconds for `tracepath` snapshots. |
 | `pathTraceMaxHops` | integer | `16` | Maximum hop count passed to `tracepath`. |
 | `pathTraceTimeout` | integer | `10` | Timeout in seconds for a single `tracepath` execution. |
-| `env` | object[string]string | `{}` | Extra environment variables injected into both server and client containers. |
-| `serverEnv` | object[string]string | `{}` | Extra environment variables injected only into server containers. |
-| `clientEnv` | object[string]string | `{}` | Extra environment variables injected only into client containers. |
 
 ### `MeasurementProfile.status`
 
@@ -111,7 +108,6 @@ cluster when a `LinkMeasurement` uses `source.cluster != destination.cluster`.
 | --- | --- | --- | --- | --- |
 | `cluster` | string | no | `"local"` | Logical cluster name. Same-cluster measurements may continue to use `local`, but cross-cluster measurements should use explicit names such as `cluster-a` and `cluster-b`. |
 | `nodeName` | string | yes | none | Kubernetes node name on which the workload should run. |
-| `nodeAddress` | string | no | resolved by operator | Internal node IP. Users normally do not set this on `LinkMeasurement`; the operator resolves it when generating `MeasurementSession`. |
 
 ### `LinkMeasurement.spec.execution`
 
@@ -119,8 +115,7 @@ cluster when a `LinkMeasurement` uses `source.cluster != destination.cluster`.
 | --- | --- | --- | --- | --- |
 | `mode` | string | no | `continuous` | Supported values: `continuous`, `probe`, `periodicProbe`. |
 | `every` | string | for `periodicProbe` | `""` | Human-readable period like `30s`, `5m`, `1h`. Required only for `periodicProbe`. |
-| `durationSeconds` | integer | no | `0` | Duration of a bounded run for `probe` and `periodicProbe`. |
-| `allowOverlap` | boolean | no | `false` | Reserved execution-policy knob. It is stored and propagated, but the current MVP does not launch overlapping clients for the same session. |
+| `durationSeconds` | integer | no | profile `clientDuration` | Positive duration of a bounded run for `probe` and `periodicProbe`. |
 
 ### `LinkMeasurement.spec.runtime`
 
@@ -168,14 +163,15 @@ Cross-cluster rule:
 | `execution.every` | string | no | Original human-readable period for `periodicProbe`. |
 | `execution.everySeconds` | integer | no | Operator-normalized interval in seconds for `periodicProbe`. |
 | `execution.durationSeconds` | integer | no | Bounded probe duration in seconds. |
-| `execution.allowOverlap` | boolean | no | Propagated overlap policy knob. |
 | `runtime.image` | string | yes | Resolved exporter image used by child workloads. |
 | `runtime.imagePullPolicy` | string | yes | Resolved pull policy. |
 | `exporter` | object | yes | Fully resolved exporter configuration copied from the profile. See `MeasurementProfile.spec.exporter`. |
 
 ### `MeasurementSession.metadata.labels`
 
-The operator attaches topology labels that later become Prometheus metric labels:
+The operator attaches topology labels normalized to Kubernetes' 63-character
+limit with a hash suffix when truncation is needed. Prometheus context labels
+are populated from the full values in `spec`, not from these normalized labels:
 
 | Label | Meaning |
 | --- | --- |
@@ -212,3 +208,36 @@ The operator attaches topology labels that later become Prometheus metric labels
 | `continuous` | Long-lived `StatefulSet` | Long-lived `Deployment` | Always-on dashboards and low-friction steady-state monitoring. |
 | `probe` | Long-lived `StatefulSet` | One-shot `Job` | Short bounded tests, usually at higher rates, to check burst throughput or induced loss. |
 | `periodicProbe` | Long-lived `StatefulSet` | Long-lived `Deployment` that triggers bounded client runs on a period | Periodic sampling without constant traffic. |
+
+Completed and failed probe Jobs are retained. The operator creates a new probe
+only when the `MeasurementSession` generation changes or the current Job is
+explicitly deleted.
+
+## Operator metrics
+
+The operator exposes Prometheus metrics on port `9869` by default. Set
+`IPERF_OPERATOR_METRICS_PORT` to change the listening port. The demo publishes
+the endpoint through the `iperf-exporter-operator` Service and scrapes it as the
+`iperf-operator` Prometheus job.
+
+| Metric | Labels | Meaning |
+| --- | --- | --- |
+| `iperf_operator_reconciliations_total` | `kind`, `result` | Reconcile attempts grouped by custom-resource kind and `success` or `error`. |
+| `iperf_operator_reconciliation_duration_seconds` | `kind` | Histogram of reconcile duration. |
+| `iperf_operator_reconciliation_errors_total` | `kind`, `reason` | Reconcile failures grouped by bounded reason: `kubernetes_api`, `permanent`, or `unexpected`. |
+| `iperf_operator_resources` | `kind`, `phase` | Number of known custom resources in their latest observed phase. |
+| `iperf_operator_remote_cluster_up` | `cluster` | `1` after the latest successful RemoteCluster connectivity check, otherwise `0`. |
+| `iperf_operator_remote_cleanup_failures_total` | `cluster` | Failed session cleanup attempts against a remote cluster. |
+| `iperf_operator_finalizers_pending` | none | Session finalizers currently waiting for workload cleanup. |
+| `iperf_operator_probe_runs_total` | `result` | Completed probe Jobs grouped by `success` or `failed`, deduplicated by Job UID. |
+| `iperf_operator_probe_duration_seconds` | `result` | Histogram of probe Job runtime derived from Kubernetes start/completion timestamps. |
+| `iperf_operator_start_time_seconds` | none | Unix timestamp when operator metrics were initialized. |
+| `iperf_operator_build_info` | `version`, `python_version` | Constant `1` with build and Python runtime information. |
+
+## v1alpha1 migration
+
+Reapply the CRDs, then reapply existing `MeasurementProfile` and
+`LinkMeasurement` objects. Remove the former `env`, `serverEnv`, `clientEnv`,
+`allowOverlap`, and user-provided `nodeAddress` fields before applying. The
+operator recreates generated `MeasurementSession` objects; no conversion webhook
+is provided for this experimental API.

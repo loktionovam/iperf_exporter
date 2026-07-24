@@ -59,6 +59,7 @@ spec:
                   properties:
                     name:
                       type: string
+                      minLength: 1
                 profileRef:
                   type: object
                   required:
@@ -66,6 +67,7 @@ spec:
                   properties:
                     name:
                       type: string
+                      minLength: 1
                 protocol:
                   type: string
                   enum:
@@ -91,10 +93,13 @@ spec:
                   properties:
                     cluster:
                       type: string
+                      minLength: 1
                     nodeName:
                       type: string
+                      minLength: 1
                     nodeAddress:
                       type: string
+                      minLength: 1
                 destination:
                   type: object
                   required:
@@ -104,23 +109,31 @@ spec:
                   properties:
                     cluster:
                       type: string
+                      minLength: 1
                     nodeName:
                       type: string
+                      minLength: 1
                     nodeAddress:
                       type: string
+                      minLength: 1
                 execution:
                   type: object
                   properties:
                     mode:
                       type: string
+                      enum:
+                        - continuous
+                        - probe
+                        - periodicProbe
                     every:
                       type: string
+                      pattern: '^[1-9][0-9]*[smhd]?$'
                     everySeconds:
                       type: integer
+                      minimum: 1
                     durationSeconds:
                       type: integer
-                    allowOverlap:
-                      type: boolean
+                      minimum: 1
                 runtime:
                   type: object
                   required:
@@ -129,8 +142,13 @@ spec:
                   properties:
                     image:
                       type: string
+                      minLength: 1
                     imagePullPolicy:
                       type: string
+                      enum:
+                        - Always
+                        - IfNotPresent
+                        - Never
                 exporter:
                   type: object
                   required:
@@ -150,28 +168,36 @@ spec:
                     - pathTraceTTL
                     - pathTraceMaxHops
                     - pathTraceTimeout
-                    - env
-                    - serverEnv
-                    - clientEnv
                   properties:
                     protocol:
                       type: string
+                      enum:
+                        - tcp
+                        - udp
                     port:
                       type: integer
+                      minimum: 1
+                      maximum: 65535
                     bindPort:
                       type: integer
+                      minimum: 1
+                      maximum: 65535
                     interval:
                       type: integer
+                      minimum: 1
                     len:
                       type: integer
+                      minimum: 1
                     metricTTL:
                       type: integer
+                      minimum: 0
                     debug:
                       type: boolean
                     clientBandwidth:
                       type: string
                     clientDuration:
                       type: integer
+                      minimum: 1
                     serverAdditionalParams:
                       type: string
                     clientAdditionalParams:
@@ -182,22 +208,13 @@ spec:
                       type: string
                     pathTraceTTL:
                       type: integer
+                      minimum: 0
                     pathTraceMaxHops:
                       type: integer
+                      minimum: 1
                     pathTraceTimeout:
                       type: integer
-                    env:
-                      type: object
-                      additionalProperties:
-                        type: string
-                    serverEnv:
-                      type: object
-                      additionalProperties:
-                        type: string
-                    clientEnv:
-                      type: object
-                      additionalProperties:
-                        type: string
+                      minimum: 1
             status:
               type: object
               x-kubernetes-preserve-unknown-fields: true

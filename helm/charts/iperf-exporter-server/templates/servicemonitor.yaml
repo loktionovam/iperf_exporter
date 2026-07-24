@@ -6,7 +6,9 @@ metadata:
   labels:
     {{- include "iperf-exporter-server.labels" . | nindent 4 }}
     app.kubernetes.io/component: server
-    release: {{ $.Release.Name | quote }}
+    {{- with .Values.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:

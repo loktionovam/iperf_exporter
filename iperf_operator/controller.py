@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import os
-import time
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -27,9 +26,11 @@ from iperf_operator.manifests import (
     build_headless_service,
     build_server_statefulset,
 )
+from iperf_operator.metrics import get_operator_metrics, start_operator_metrics_server
 from iperf_operator.specs import (
     SESSION_LABEL_KEYS,
     expand_measurement_sessions,
+    kubernetes_label_value,
     legacy_session_client_deployment_name,
     legacy_session_client_job_name,
     legacy_session_headless_service_name,
@@ -50,6 +51,7 @@ DEFAULT_EXPORTER_IMAGE = os.environ.get(
     os.environ.get("IPERF_OPERATOR_DEFAULT_IMAGE", "iperf_exporter:kind-demo"),
 )
 LOCAL_CLUSTER_NAME = os.environ.get("IPERF_OPERATOR_LOCAL_CLUSTER_NAME", "local")
+DEFAULT_METRICS_PORT = 9869
 
 
 @dataclass(frozen=True)
@@ -71,11 +73,30 @@ def _core_api() -> client.CoreV1Api:
 
 
 @kopf.on.startup()
-def configure_kubernetes(**_):
+def configure_kubernetes(settings=None, **_):
+    if settings is not None:
+        settings.scanning.disabled = True
     try:
         config.load_incluster_config()
     except config.ConfigException:
         config.load_kube_config()
+
+
+@kopf.on.startup()
+def configure_metrics(**_):
+    raw_port = os.environ.get(
+        "IPERF_OPERATOR_METRICS_PORT",
+        str(DEFAULT_METRICS_PORT),
+    )
+    try:
+        port = int(raw_port)
+    except ValueError as exc:
+        raise ValueError(
+            f"IPERF_OPERATOR_METRICS_PORT must be an integer, got {raw_port!r}"
+        ) from exc
+    if not 1 <= port <= 65535:
+        raise ValueError("IPERF_OPERATOR_METRICS_PORT must be between 1 and 65535")
+    start_operator_metrics_server(port)
 
 
 def _local_cluster_aliases() -> set[str]:
@@ -155,7 +176,9 @@ def _cluster_context(
         return None
 
     try:
-        secret = _core_api().read_namespaced_secret(name=secret_name, namespace=namespace)
+        secret = _core_api().read_namespaced_secret(
+            name=secret_name, namespace=namespace
+        )
         encoded = (secret.data or {}).get(secret_key, "")
         if not encoded:
             raise kopf.PermanentError(
@@ -170,7 +193,8 @@ def _cluster_context(
 
     return _cluster_context_from_api_client(
         name=cluster_name,
-        namespace=remote_cluster.get("spec", {}).get("namespace", namespace) or namespace,
+        namespace=remote_cluster.get("spec", {}).get("namespace", namespace)
+        or namespace,
         api_client=api_client,
         is_local=False,
     )
@@ -221,30 +245,11 @@ def _apply_statefulset(cluster: ClusterContext, body: dict) -> None:
             body=body,
         )
     except ApiException as exc:
-        if exc.status == 422:
-            _delete_statefulset_if_exists(cluster, body["metadata"]["name"])
-            deadline = time.time() + 30
-            while time.time() < deadline:
-                try:
-                    cluster.apps.read_namespaced_stateful_set(
-                        name=body["metadata"]["name"],
-                        namespace=cluster.namespace,
-                    )
-                except ApiException as read_exc:
-                    if read_exc.status == 404:
-                        break
-                    raise
-                time.sleep(1)
-            else:
-                raise
-            cluster.apps.create_namespaced_stateful_set(
-                namespace=cluster.namespace,
-                body=body,
-            )
-            return
         if exc.status != 404:
             raise
-        cluster.apps.create_namespaced_stateful_set(namespace=cluster.namespace, body=body)
+        cluster.apps.create_namespaced_stateful_set(
+            namespace=cluster.namespace, body=body
+        )
 
 
 def _apply_deployment(cluster: ClusterContext, body: dict) -> None:
@@ -258,7 +263,9 @@ def _apply_deployment(cluster: ClusterContext, body: dict) -> None:
     except ApiException as exc:
         if exc.status != 404:
             raise
-        cluster.apps.create_namespaced_deployment(namespace=cluster.namespace, body=body)
+        cluster.apps.create_namespaced_deployment(
+            namespace=cluster.namespace, body=body
+        )
 
 
 def _apply_job(cluster: ClusterContext, body: dict) -> None:
@@ -297,7 +304,9 @@ def _delete_statefulset_if_exists(cluster: ClusterContext, name: str) -> None:
 
 def _delete_deployment_if_exists(cluster: ClusterContext, name: str) -> None:
     try:
-        cluster.apps.delete_namespaced_deployment(name=name, namespace=cluster.namespace)
+        cluster.apps.delete_namespaced_deployment(
+            name=name, namespace=cluster.namespace
+        )
     except ApiException as exc:
         if exc.status != 404:
             raise
@@ -414,12 +423,14 @@ def _job_readiness(
     if failed > 0:
         phase = "Failed"
         client_ready = False
+        _observe_probe_job(job, "failed")
     elif active > 0 and server_ready:
         phase = "Running"
         client_ready = True
     elif succeeded > 0 and server_ready:
         phase = "Completed"
         client_ready = True
+        _observe_probe_job(job, "success")
     else:
         phase = "Reconciling"
         client_ready = False
@@ -433,7 +444,21 @@ def _job_readiness(
     }
 
 
-def _node_addresses(endpoints: list[dict], namespace: str) -> dict[tuple[str, str], str]:
+def _observe_probe_job(job: client.V1Job, result: str) -> None:
+    metadata = getattr(job, "metadata", None)
+    status = getattr(job, "status", None)
+    uid = str(getattr(metadata, "uid", "") or "")
+    started_at = getattr(status, "start_time", None)
+    completed_at = getattr(status, "completion_time", None)
+    duration_seconds = None
+    if started_at is not None and completed_at is not None:
+        duration_seconds = (completed_at - started_at).total_seconds()
+    get_operator_metrics().observe_probe_job(uid, result, duration_seconds)
+
+
+def _node_addresses(
+    endpoints: list[dict], namespace: str
+) -> dict[tuple[str, str], str]:
     cluster_cache: dict[str, ClusterContext] = {}
     resolved: dict[tuple[str, str], str] = {}
     for endpoint in endpoints:
@@ -442,9 +467,6 @@ def _node_addresses(endpoints: list[dict], namespace: str) -> dict[tuple[str, st
         if not node_name:
             continue
         key = (cluster_name, node_name)
-        if endpoint.get("nodeAddress"):
-            resolved[key] = endpoint["nodeAddress"]
-            continue
         if key in resolved:
             continue
 
@@ -490,7 +512,10 @@ def _list_measurement_sessions(namespace: str, measurement_name: str) -> list[di
             version=API_VERSION,
             namespace=namespace,
             plural=MEASUREMENT_SESSION_PLURAL,
-            label_selector=f"{SESSION_LABEL_KEYS['measurement']}={measurement_name}",
+            label_selector=(
+                f"{SESSION_LABEL_KEYS['measurement']}="
+                f"{kubernetes_label_value(measurement_name)}"
+            ),
         )
         .get("items", [])
     )
@@ -498,20 +523,10 @@ def _list_measurement_sessions(namespace: str, measurement_name: str) -> list[di
 
 def _list_session_jobs(cluster: ClusterContext, session: dict) -> list[client.V1Job]:
     label_value = session["metadata"]["labels"][SESSION_LABEL_KEYS["session"]]
-    return (
-        cluster.batch.list_namespaced_job(
-            namespace=cluster.namespace,
-            label_selector=f"{SESSION_LABEL_KEYS['session']}={label_value}",
-        ).items
-    )
-
-
-def _job_counters(job: client.V1Job) -> tuple[int, int, int]:
-    return (
-        job.status.active or 0,
-        job.status.succeeded or 0,
-        job.status.failed or 0,
-    )
+    return cluster.batch.list_namespaced_job(
+        namespace=cluster.namespace,
+        label_selector=f"{SESSION_LABEL_KEYS['session']}={label_value}",
+    ).items
 
 
 def _load_profile(namespace: str, profile_name: str) -> dict:
@@ -542,20 +557,33 @@ def _patch_link_measurement_annotation(namespace: str, name: str, value: str) ->
     )
 
 
-def _server_cluster(body: dict, namespace: str, *, required: bool = True) -> ClusterContext | None:
-    return _cluster_context(namespace, body["spec"]["destination"]["cluster"], required=required)
+def _server_cluster(
+    body: dict, namespace: str, *, required: bool = True
+) -> ClusterContext | None:
+    return _cluster_context(
+        namespace, body["spec"]["destination"]["cluster"], required=required
+    )
 
 
-def _client_cluster(body: dict, namespace: str, *, required: bool = True) -> ClusterContext | None:
-    return _cluster_context(namespace, body["spec"]["source"]["cluster"], required=required)
+def _client_cluster(
+    body: dict, namespace: str, *, required: bool = True
+) -> ClusterContext | None:
+    return _cluster_context(
+        namespace, body["spec"]["source"]["cluster"], required=required
+    )
 
 
 def _delete_session_workloads(body: dict, namespace: str) -> None:
-    server_cluster = _server_cluster(body, namespace, required=False)
-    client_cluster = _client_cluster(body, namespace, required=False)
+    server_cluster_name = body["spec"]["destination"]["cluster"]
+    client_cluster_name = body["spec"]["source"]["cluster"]
 
-    if server_cluster is not None:
-        _delete_statefulset_if_exists(server_cluster, session_server_statefulset_name(body))
+    try:
+        server_cluster = _server_cluster(body, namespace, required=True)
+        if server_cluster is None:
+            raise RuntimeError("required server cluster context is unavailable")
+        _delete_statefulset_if_exists(
+            server_cluster, session_server_statefulset_name(body)
+        )
         _delete_service_if_exists(server_cluster, session_headless_service_name(body))
         _delete_service_if_exists(server_cluster, session_service_name(body))
         legacy_server = legacy_session_server_statefulset_name(body)
@@ -567,9 +595,17 @@ def _delete_session_workloads(body: dict, namespace: str) -> None:
             _delete_service_if_exists(server_cluster, legacy_headless)
         if legacy_service != session_service_name(body):
             _delete_service_if_exists(server_cluster, legacy_service)
+    except Exception:
+        _record_remote_cleanup_failure(server_cluster_name)
+        raise
 
-    if client_cluster is not None:
-        _delete_deployment_if_exists(client_cluster, session_client_deployment_name(body))
+    try:
+        client_cluster = _client_cluster(body, namespace, required=True)
+        if client_cluster is None:
+            raise RuntimeError("required client cluster context is unavailable")
+        _delete_deployment_if_exists(
+            client_cluster, session_client_deployment_name(body)
+        )
         _delete_job_if_exists(client_cluster, session_client_job_name(body))
         legacy_deployment = legacy_session_client_deployment_name(body)
         legacy_job = legacy_session_client_job_name(body)
@@ -577,6 +613,14 @@ def _delete_session_workloads(body: dict, namespace: str) -> None:
             _delete_deployment_if_exists(client_cluster, legacy_deployment)
         if legacy_job != session_client_job_name(body):
             _delete_job_if_exists(client_cluster, legacy_job)
+    except Exception:
+        _record_remote_cleanup_failure(client_cluster_name)
+        raise
+
+
+def _record_remote_cleanup_failure(cluster_name: str) -> None:
+    if cluster_name not in _local_cluster_aliases():
+        get_operator_metrics().record_remote_cleanup_failure(cluster_name)
 
 
 def _delete_legacy_session_workloads(body: dict, namespace: str) -> None:
@@ -674,7 +718,9 @@ def _reconcile_session(body: dict, namespace: str) -> dict:
     _apply_statefulset(server_cluster, statefulset)
 
     if execution_mode == "probe":
-        _delete_deployment_if_exists(client_cluster, session_client_deployment_name(body))
+        _delete_deployment_if_exists(
+            client_cluster, session_client_deployment_name(body)
+        )
         job = build_client_job(body)
         _adopt_if_local(job, body, client_cluster)
         desired_job_name = job["metadata"]["name"]
@@ -686,24 +732,19 @@ def _reconcile_session(body: dict, namespace: str) -> dict:
             current_job = existing_job
 
         if current_job is not None:
-            active, succeeded, failed = _job_counters(current_job)
-            if failed > 0:
-                _delete_job_if_exists(client_cluster, current_job.metadata.name)
-                current_job = None
-            elif active > 0 or succeeded > 0:
-                readiness = _session_status(body=body, namespace=namespace)
-                return {
-                    **readiness,
-                    "headlessServiceName": session_headless_service_name(body),
-                    "serviceName": (
-                        session_service_name(body)
-                        if body["spec"]["networkMode"] == "service"
-                        else ""
-                    ),
-                    "serverStatefulSetName": session_server_statefulset_name(body),
-                    "clientDeploymentName": "",
-                    "clientJobName": session_client_job_name(body),
-                }
+            readiness = _session_status(body=body, namespace=namespace)
+            return {
+                **readiness,
+                "headlessServiceName": session_headless_service_name(body),
+                "serviceName": (
+                    session_service_name(body)
+                    if body["spec"]["networkMode"] == "service"
+                    else ""
+                ),
+                "serverStatefulSetName": session_server_statefulset_name(body),
+                "clientDeploymentName": "",
+                "clientJobName": session_client_job_name(body),
+            }
 
         if _statefulset_ready(server_cluster, session_server_statefulset_name(body)):
             _apply_job(client_cluster, job)
@@ -777,22 +818,44 @@ def _session_status(body: dict, namespace: str) -> dict:
 
 @kopf.on.create(API_GROUP, API_VERSION, MEASUREMENT_PROFILE_PLURAL)
 @kopf.on.update(API_GROUP, API_VERSION, MEASUREMENT_PROFILE_PLURAL)
+@kopf.on.resume(API_GROUP, API_VERSION, MEASUREMENT_PROFILE_PLURAL)
 def reconcile_profile(meta, namespace, spec, patch, **_):
+    metrics = get_operator_metrics()
     name = meta["name"]
-    trigger_value = meta.get("resourceVersion", "")
-    for measurement in _list_link_measurements(namespace):
-        if measurement.get("spec", {}).get("profileRef") == name:
-            _patch_link_measurement_annotation(
-                namespace=namespace,
-                name=measurement["metadata"]["name"],
-                value=trigger_value,
+    with metrics.observe_reconciliation("MeasurementProfile"):
+        try:
+            trigger_value = meta.get("resourceVersion", "")
+            for measurement in _list_link_measurements(namespace):
+                if measurement.get("spec", {}).get("profileRef") == name:
+                    _patch_link_measurement_annotation(
+                        namespace=namespace,
+                        name=measurement["metadata"]["name"],
+                        value=trigger_value,
+                    )
+            patch.status.update(
+                {
+                    "phase": "Ready",
+                    "protocol": spec.get("protocol", ""),
+                    "reconciledAt": datetime.now(timezone.utc).isoformat(),
+                }
             )
-    patch.status.update(
-        {
-            "phase": "Ready",
-            "protocol": spec.get("protocol", ""),
-            "reconciledAt": datetime.now(timezone.utc).isoformat(),
-        }
+        except Exception:
+            metrics.set_resource_phase("MeasurementProfile", namespace, name, "Error")
+            raise
+        metrics.set_resource_phase("MeasurementProfile", namespace, name, "Ready")
+
+
+@kopf.on.delete(
+    API_GROUP,
+    API_VERSION,
+    MEASUREMENT_PROFILE_PLURAL,
+    optional=True,
+)
+def forget_profile(meta, namespace, **_):
+    get_operator_metrics().remove_resource(
+        "MeasurementProfile",
+        namespace,
+        meta["name"],
     )
 
 
@@ -800,44 +863,161 @@ def reconcile_profile(meta, namespace, spec, patch, **_):
 @kopf.on.update(API_GROUP, API_VERSION, REMOTE_CLUSTER_PLURAL)
 @kopf.on.resume(API_GROUP, API_VERSION, REMOTE_CLUSTER_PLURAL)
 def reconcile_remote_cluster(body, namespace, patch, **_):
+    metrics = get_operator_metrics()
     cluster_name = body["metadata"]["name"]
-    cluster = _cluster_context(namespace, cluster_name)
-    namespace_name = body.get("spec", {}).get("namespace", namespace) or namespace
+    with metrics.observe_reconciliation("RemoteCluster"):
+        try:
+            cluster = _cluster_context(namespace, cluster_name)
+            namespace_name = (
+                body.get("spec", {}).get("namespace", namespace) or namespace
+            )
 
-    cluster.core.read_namespace(name=namespace_name)
-    cluster.core.list_node(limit=1)
+            cluster.core.list_node(limit=1)
+            cluster.core.list_namespaced_service(
+                namespace=namespace_name,
+                limit=1,
+            )
 
-    patch.status.update(
-        {
-            "phase": "Ready",
-            "namespace": namespace_name,
-            "reconciledAt": datetime.now(timezone.utc).isoformat(),
-        }
-    )
+            patch.status.update(
+                {
+                    "phase": "Ready",
+                    "namespace": namespace_name,
+                    "reconciledAt": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception:
+            metrics.set_remote_cluster_up(cluster_name, False)
+            metrics.set_resource_phase(
+                "RemoteCluster", namespace, cluster_name, "Error"
+            )
+            raise
+        metrics.set_remote_cluster_up(cluster_name, True)
+        metrics.set_resource_phase("RemoteCluster", namespace, cluster_name, "Ready")
+
+
+@kopf.on.delete(
+    API_GROUP,
+    API_VERSION,
+    REMOTE_CLUSTER_PLURAL,
+    optional=True,
+)
+def forget_remote_cluster(meta, namespace, **_):
+    metrics = get_operator_metrics()
+    name = meta["name"]
+    metrics.remove_resource("RemoteCluster", namespace, name)
+    metrics.remove_remote_cluster(name)
 
 
 @kopf.on.create(API_GROUP, API_VERSION, LINK_MEASUREMENT_PLURAL)
 @kopf.on.update(API_GROUP, API_VERSION, LINK_MEASUREMENT_PLURAL)
 @kopf.on.resume(API_GROUP, API_VERSION, LINK_MEASUREMENT_PLURAL)
 def reconcile_link_measurement(body, namespace, patch, **_):
-    patch.status.update(_reconcile_measurement(body=body, namespace=namespace))
+    metrics = get_operator_metrics()
+    name = body["metadata"]["name"]
+    with metrics.observe_reconciliation("LinkMeasurement"):
+        try:
+            status = _reconcile_measurement(body=body, namespace=namespace)
+            patch.status.update(status)
+        except Exception:
+            metrics.set_resource_phase("LinkMeasurement", namespace, name, "Error")
+            raise
+        metrics.set_resource_phase(
+            "LinkMeasurement",
+            namespace,
+            name,
+            status.get("phase", "Unknown"),
+        )
+
+
+@kopf.on.delete(
+    API_GROUP,
+    API_VERSION,
+    LINK_MEASUREMENT_PLURAL,
+    optional=True,
+)
+def forget_link_measurement(body, namespace, **_):
+    get_operator_metrics().remove_resource(
+        "LinkMeasurement",
+        namespace,
+        body["metadata"]["name"],
+    )
 
 
 @kopf.on.create(API_GROUP, API_VERSION, MEASUREMENT_SESSION_PLURAL)
 @kopf.on.update(API_GROUP, API_VERSION, MEASUREMENT_SESSION_PLURAL)
 @kopf.on.resume(API_GROUP, API_VERSION, MEASUREMENT_SESSION_PLURAL)
 def reconcile_measurement_session(body, namespace, patch, **_):
-    patch.status.update(_reconcile_session(body=body, namespace=namespace))
+    _update_measurement_session(
+        body=body,
+        namespace=namespace,
+        patch=patch,
+        reconcile=True,
+    )
 
 
 @kopf.on.delete(API_GROUP, API_VERSION, MEASUREMENT_SESSION_PLURAL)
 def delete_measurement_session(body, namespace, **_):
-    _delete_session_workloads(body=body, namespace=namespace)
+    metrics = get_operator_metrics()
+    name = body["metadata"]["name"]
+    metrics.mark_finalizer_pending(namespace, name)
+    metrics.set_resource_phase(
+        "MeasurementSession",
+        namespace,
+        name,
+        "Deleting",
+    )
+    with metrics.observe_reconciliation("MeasurementSession"):
+        try:
+            _delete_session_workloads(body=body, namespace=namespace)
+        except Exception:
+            metrics.set_resource_phase(
+                "MeasurementSession",
+                namespace,
+                name,
+                "Error",
+            )
+            raise
+    metrics.mark_finalizer_complete(namespace, name)
+    metrics.remove_resource("MeasurementSession", namespace, name)
 
 
 @kopf.timer(API_GROUP, API_VERSION, MEASUREMENT_SESSION_PLURAL, interval=15.0)
 def refresh_measurement_session_status(body, namespace, patch, **_):
-    if body["spec"]["execution"]["mode"] == "probe":
-        patch.status.update(_reconcile_session(body=body, namespace=namespace))
-        return
-    patch.status.update(_session_status(body=body, namespace=namespace))
+    _update_measurement_session(
+        body=body,
+        namespace=namespace,
+        patch=patch,
+        reconcile=body["spec"]["execution"]["mode"] == "probe",
+    )
+
+
+def _update_measurement_session(
+    body: dict,
+    namespace: str,
+    patch,
+    *,
+    reconcile: bool,
+) -> None:
+    metrics = get_operator_metrics()
+    name = body["metadata"]["name"]
+    with metrics.observe_reconciliation("MeasurementSession"):
+        try:
+            if reconcile:
+                status = _reconcile_session(body=body, namespace=namespace)
+            else:
+                status = _session_status(body=body, namespace=namespace)
+            patch.status.update(status)
+        except Exception:
+            metrics.set_resource_phase(
+                "MeasurementSession",
+                namespace,
+                name,
+                "Error",
+            )
+            raise
+        metrics.set_resource_phase(
+            "MeasurementSession",
+            namespace,
+            name,
+            status.get("phase", "Unknown"),
+        )

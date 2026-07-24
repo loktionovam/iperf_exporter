@@ -9,6 +9,10 @@ metadata:
 spec:
   type: {{ .Values.server.service.type }}
   ports:
+    - port: {{ .Values.server.config.port }}
+      targetPort: iperf
+      protocol: {{ .Values.server.config.proto | upper }}
+      name: iperf
     - port: {{ .Values.server.service.port }}
       targetPort: http-metrics
       protocol: TCP

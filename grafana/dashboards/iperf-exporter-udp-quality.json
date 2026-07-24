@@ -203,7 +203,7 @@
       },
       "targets": [
         {
-          "expr": "max by (connection_pair, peer_port, hop_index, hop_address, hop_summary) (iperf_exporter_udp_path_trace_hop_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
+          "expr": "max by (connection_pair, peer_port, hop_index, hop_address) (iperf_exporter_udp_path_trace_hop_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -233,15 +233,13 @@
               "connection_pair": 0,
               "peer_port": 1,
               "hop_index": 2,
-              "hop_address": 3,
-              "hop_summary": 4
+              "hop_address": 3
             },
             "renameByName": {
               "connection_pair": "Client->Server Pair",
               "peer_port": "Client Port",
               "hop_address": "Hop Address",
-              "hop_index": "Hop",
-              "hop_summary": "Details"
+              "hop_index": "Hop"
             }
           }
         }
@@ -691,6 +689,372 @@
       ],
       "title": "UDP Socket Queues",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 45
+      },
+      "id": 105,
+      "panels": [],
+      "title": "Exporter Freshness and Outcomes",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Health of the supervised UDP iperf server process for the selected topology.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "Down"
+                },
+                "1": {
+                  "text": "Up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 46
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max(iperf_exporter_iperf_process_up{mode=\"server\",proto=\"udp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "UDP Exporter Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Seconds since the newest valid UDP interval report for the selected topology.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 46
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "(time() - max(iperf_exporter_sample_timestamp_seconds{proto=\"udp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"})) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest UDP Sample Age",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "UDP test errors and timeouts observed during the last hour.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 46
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(iperf_exporter_test_runs_total{proto=\"udp\",result=~\"error|timeout\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[1h])) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "UDP Test Failures (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Background UDP path-trace failures during the last hour.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 46
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(iperf_exporter_path_trace_failures_total{proto=\"udp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[1h])) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "UDP Trace Failures (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Observed UDP test outcomes over Grafana's rate interval.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (result) (increase(iperf_exporter_test_runs_total{proto=\"udp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "UDP Test Outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "UDP parser and best-effort collector failures over Grafana's rate interval.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 51
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(iperf_exporter_parse_errors_total{proto=\"udp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[$__rate_interval]))",
+          "legendFormat": "parse",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (collector, reason) (increase(iperf_exporter_collector_errors_total{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[$__rate_interval]))",
+          "legendFormat": "{{collector}} / {{reason}}",
+          "refId": "B"
+        }
+      ],
+      "title": "UDP Exporter Error Events",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -988,6 +1352,6 @@
   "timezone": "",
   "title": "IPerf Exporter UDP Quality",
   "uid": "iperf-exporter-udp-quality",
-  "version": 9,
+  "version": 10,
   "weekStart": ""
 }

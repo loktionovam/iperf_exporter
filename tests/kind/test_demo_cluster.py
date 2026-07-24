@@ -2,20 +2,19 @@ import json
 import os
 import subprocess
 import time
-from urllib.request import ProxyHandler, Request, build_opener
 
 import pytest
-
 
 CLUSTER_NAME = os.environ.get("CLUSTER_NAME", "iperf-demo")
 KUBECTL_CONTEXT = os.environ.get("KUBECTL_CONTEXT", f"kind-{CLUSTER_NAME}")
 NAMESPACE = os.environ.get("NAMESPACE", "iperf-exporter-demo")
 INGRESS_HOST_SUFFIX = os.environ.get("INGRESS_HOST_SUFFIX", "127.0.0.1.nip.io")
-INGRESS_HTTP_PORT = int(os.environ.get("INGRESS_HTTP_PORT", "8080"))
 PROM_HOST = f"prometheus.{INGRESS_HOST_SUFFIX}"
 GRAFANA_HOST = f"grafana.{INGRESS_HOST_SUFFIX}"
-HTTP_TIMEOUT_SECONDS = int(os.environ.get("KIND_DEMO_HTTP_TIMEOUT", "5"))
-HTTP_OPENER = build_opener(ProxyHandler({}))
+SERVICE_PROXIES = {
+    PROM_HOST: f"/api/v1/namespaces/{NAMESPACE}/services/http:prometheus:9090/proxy",
+    GRAFANA_HOST: f"/api/v1/namespaces/{NAMESPACE}/services/http:grafana:3000/proxy",
+}
 
 EXPECTED_PROFILES = {
     "tcp-quality-continuous",
@@ -118,29 +117,31 @@ def wait_for_rollout(kind: str, name: str, timeout: int = 180) -> None:
     )
 
 
-def http_json(host: str, path: str) -> object:
-    request = Request(
-        f"http://127.0.0.1:{INGRESS_HTTP_PORT}{path}",
-        headers={"Host": host},
+def service_proxy_get(host: str, path: str) -> str:
+    proxy_path = SERVICE_PROXIES[host]
+    return subprocess.check_output(
+        [
+            "kubectl",
+            "--context",
+            KUBECTL_CONTEXT,
+            "get",
+            "--raw",
+            f"{proxy_path}{path}",
+        ],
+        text=True,
     )
-    with HTTP_OPENER.open(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-        return json.load(response)
+
+
+def http_json(host: str, path: str) -> object:
+    return json.loads(service_proxy_get(host, path))
 
 
 def wait_http(host: str, path: str, timeout: int = 60) -> None:
-    def _healthy() -> bool:
-        request = Request(
-            f"http://127.0.0.1:{INGRESS_HTTP_PORT}{path}",
-            headers={"Host": host},
-        )
-        with HTTP_OPENER.open(request, timeout=HTTP_TIMEOUT_SECONDS):
-            return True
-
     wait_until(
-        _healthy,
+        lambda: bool(service_proxy_get(host, path)),
         timeout=timeout,
         interval=1,
-        message=f"Timed out waiting for http://{host}:{INGRESS_HTTP_PORT}{path}",
+        message=f"Timed out waiting for the {host} Kubernetes Service",
     )
 
 
@@ -260,6 +261,16 @@ def test_remote_clusters_ready():
     assert EXPECTED_REMOTE_CLUSTERS <= names
 
 
+def test_ingresses_are_configured():
+    payload = kubectl_json("get", "ingresses")
+    hosts = {
+        rule["host"]
+        for item in payload.get("items", [])
+        for rule in item.get("spec", {}).get("rules", [])
+    }
+    assert {PROM_HOST, GRAFANA_HOST} <= hosts
+
+
 def test_measurement_sessions_cover_all_modes():
     payload = measurement_sessions_payload()
     items = payload.get("items", [])
@@ -285,6 +296,69 @@ def test_measurement_session_status_is_consistent():
     assert not invalid, invalid
 
 
+def test_api_server_rejects_invalid_profile_port():
+    invalid_profile = """
+apiVersion: netperf.iperfexporter.io/v1alpha1
+kind: MeasurementProfile
+metadata:
+  name: invalid-port
+spec:
+  protocol: tcp
+  exporter:
+    port: 0
+"""
+    result = subprocess.run(
+        [
+            "kubectl",
+            "--context",
+            KUBECTL_CONTEXT,
+            "-n",
+            NAMESPACE,
+            "apply",
+            "-f",
+            "-",
+        ],
+        input=invalid_profile,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "greater than or equal to 1" in result.stderr
+
+
+def test_completed_probe_is_one_shot_and_restarts_after_explicit_job_deletion():
+    sessions = [
+        item
+        for item in measurement_sessions_payload().get("items", [])
+        if item.get("spec", {}).get("execution", {}).get("mode") == "probe"
+    ]
+    assert sessions
+    session = sessions[0]
+    session_name = session["metadata"]["name"]
+
+    wait_until(
+        lambda: object_phase("measurementsession", session_name) == "Completed",
+        timeout=180,
+        message=f"probe session {session_name} did not complete",
+    )
+    job_name = kubectl_json("get", "measurementsession", session_name)["status"][
+        "clientJobName"
+    ]
+    original_uid = kubectl_json("get", "job", job_name)["metadata"]["uid"]
+
+    time.sleep(305)
+    assert kubectl_json("get", "job", job_name)["metadata"]["uid"] == original_uid
+
+    kubectl("delete", "job", job_name)
+    wait_until(
+        lambda: kubectl_json("get", "job", job_name)["metadata"]["uid"] != original_uid,
+        timeout=90,
+        message=f"probe job {job_name} was not recreated after explicit deletion",
+    )
+
+
 def test_prometheus_has_active_iperf_targets():
     payload = http_json(PROM_HOST, "/api/v1/targets")
     targets = payload["data"]["activeTargets"]
@@ -292,6 +366,29 @@ def test_prometheus_has_active_iperf_targets():
         target for target in targets if target["labels"].get("job") == "iperf-exporter"
     ]
     assert iperf_targets
+
+
+def test_prometheus_scrapes_operator_metrics():
+    def _operator_is_up() -> bool:
+        payload = http_json(
+            PROM_HOST,
+            "/api/v1/query?query=up%7Bjob%3D%22iperf-operator%22%7D",
+        )
+        result = payload["data"]["result"]
+        return bool(result) and float(result[0]["value"][1]) == 1
+
+    wait_until(
+        _operator_is_up,
+        timeout=30,
+        interval=1,
+        message="Prometheus did not scrape the operator metrics endpoint",
+    )
+
+    payload = http_json(
+        PROM_HOST,
+        "/api/v1/query?query=iperf_operator_build_info",
+    )
+    assert payload["data"]["result"]
 
 
 def test_prometheus_sees_cross_cluster_measurement():

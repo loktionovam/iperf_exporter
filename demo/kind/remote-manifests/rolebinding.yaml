@@ -1,12 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: iperf-exporter-remote-access
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: iperf-exporter-remote-node-read
+  kind: Role
+  name: iperf-exporter-remote-access
 subjects:
   - kind: ServiceAccount
     name: iperf-exporter-remote-access
-    namespace: iperf-exporter-demo

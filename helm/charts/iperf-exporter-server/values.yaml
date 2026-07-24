@@ -7,7 +7,7 @@ image:
   # -- Kubernetes image pull policy.
   pullPolicy: IfNotPresent
   # -- Image tag to deploy.
-  tag: "0.1.2-1-gcf8f1c7"
+  tag: ""
 
 # -- Image pull secrets for private registries.
 imagePullSecrets: []
@@ -26,13 +26,23 @@ serviceAccount:
   name: ""
 
 # -- Pod-level security context shared by workloads.
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  # -- Require every container in the pod to run as non-root.
+  runAsNonRoot: true
+  # -- Apply the default container-runtime seccomp profile.
+  seccompProfile:
+    type: RuntimeDefault
 
 # -- Container security context shared by workloads.
 securityContext:
   # -- Mount the container filesystem as read-only.
   readOnlyRootFilesystem: true
+  # -- Prevent gaining extra privileges.
+  allowPrivilegeEscalation: false
+  # -- Drop all Linux capabilities.
+  capabilities:
+    drop:
+      - ALL
   # -- Require the container to run as a non-root user.
   runAsNonRoot: true
   # -- Numeric UID used by the container process.
@@ -57,7 +67,7 @@ server:
     # -- Buffer length passed to the iperf server.
     len: 1280
     # -- TTL for inactive peer metrics before they are removed.
-    metricTtl: 604800
+    metricTtl: 3600
     # -- Seconds to cache `tracepath` snapshots. Set to `0` to disable path-trace metrics.
     pathTraceTtl: 300
     # -- Maximum number of hops used by `tracepath`.
@@ -159,8 +169,10 @@ client:
 # -- ServiceMonitor settings for Prometheus Operator integration.
 serviceMonitor:
   # -- Create a ServiceMonitor for the server metrics service.
-  enabled: true
+  enabled: false
   # -- Scrape interval used by the ServiceMonitor.
   interval: 1m
   # -- Named service port scraped by the ServiceMonitor.
   port: http-metrics
+  # -- Extra labels used by the Prometheus Operator selector.
+  additionalLabels: {}

@@ -1,6 +1,8 @@
 from iperf_operator.specs import (
+    SESSION_LABEL_KEYS,
     build_exporter_env,
     expand_measurement_sessions,
+    kubernetes_label_value,
     session_client_deployment_name,
     session_client_peer,
     session_client_job_name,
@@ -37,9 +39,6 @@ def _profile(protocol="tcp"):
                 "pathTraceTTL": 45,
                 "pathTraceMaxHops": 8,
                 "pathTraceTimeout": 5,
-                "env": {"COMMON_FLAG": "yes"},
-                "serverEnv": {"SERVER_ONLY": "true"},
-                "clientEnv": {"CLIENT_ONLY": "true"},
             },
         },
     }
@@ -141,8 +140,6 @@ def test_build_exporter_env_includes_all_supported_exporter_fields():
     assert server_env["IPERF_EXPORTER_PATH_TRACE_TTL"] == "45"
     assert server_env["IPERF_EXPORTER_PATH_TRACE_MAX_HOPS"] == "8"
     assert server_env["IPERF_EXPORTER_PATH_TRACE_TIMEOUT"] == "5"
-    assert server_env["COMMON_FLAG"] == "yes"
-    assert server_env["SERVER_ONLY"] == "true"
 
     assert client_env["IPERF_EXPORTER_MODE"] == "client"
     assert client_env["IPERF_EXPORTER_CLIENT_PEER"] == "server.demo.svc.cluster.local"
@@ -155,8 +152,28 @@ def test_build_exporter_env_includes_all_supported_exporter_fields():
     assert client_env["IPERF_EXPORTER_CONTEXT_NETWORK_MODE"] == "service"
     assert client_env["IPERF_EXPORTER_CONTEXT_SRC_NODE"] == "worker-a"
     assert client_env["IPERF_EXPORTER_CONTEXT_DST_NODE"] == "worker-b"
-    assert client_env["COMMON_FLAG"] == "yes"
-    assert client_env["CLIENT_ONLY"] == "true"
+
+
+def test_removed_exporter_environment_fields_are_ignored():
+    profile = _profile()
+    profile["spec"]["exporter"].update(
+        {
+            "env": {"UNSUPPORTED": "value"},
+            "serverEnv": {"UNSUPPORTED": "value"},
+            "clientEnv": {"UNSUPPORTED": "value"},
+        }
+    )
+
+    session = expand_measurement_sessions(
+        _measurement(network_modes=["host"]),
+        profile,
+        node_addresses={"worker-a": "10.0.0.10", "worker-b": "10.0.0.11"},
+        default_image="iperf_exporter:dev",
+    )[0]
+
+    assert "env" not in session["spec"]["exporter"]
+    assert "serverEnv" not in session["spec"]["exporter"]
+    assert "clientEnv" not in session["spec"]["exporter"]
 
 
 def test_session_peer_resolution_matches_network_mode():
@@ -312,7 +329,6 @@ def test_manifests_reflect_session_topology():
         item["name"]: item["value"]
         for item in statefulset["spec"]["template"]["spec"]["containers"][0]["env"]
     }
-    assert deployment_env["CLIENT_ONLY"] == "true"
     assert deployment_env["IPERF_EXPORTER_CONTEXT_NETWORK_MODE"] == "service"
     assert statefulset_env["IPERF_EXPORTER_CONTEXT_NETWORK_MODE"] == "service"
     assert statefulset_env["IPERF_EXPORTER_CONTEXT_DIRECTION"] == "sourceToDestination"
@@ -323,6 +339,18 @@ def test_manifests_reflect_session_topology():
     assert server_container["livenessProbe"]["tcpSocket"]["port"] == 9868
     assert "httpGet" not in server_container["readinessProbe"]
     assert "httpGet" not in server_container["livenessProbe"]
+    selector_labels = statefulset["spec"]["selector"]["matchLabels"]
+    assert set(selector_labels) == {
+        "app.kubernetes.io/name",
+        "app.kubernetes.io/component",
+        SESSION_LABEL_KEYS["session"],
+    }
+    assert (
+        statefulset["spec"]["template"]["metadata"]["labels"][
+            SESSION_LABEL_KEYS["src_node"]
+        ]
+        == "worker-a"
+    )
 
 
 def test_probe_job_uses_single_run_client_mode():
@@ -344,7 +372,7 @@ def test_probe_job_uses_single_run_client_mode():
     job = build_client_job(session)
 
     assert job["metadata"]["name"] == session_client_job_name(session)
-    assert job["spec"]["ttlSecondsAfterFinished"] == 300
+    assert "ttlSecondsAfterFinished" not in job["spec"]
     assert job["spec"]["backoffLimit"] == 0
     assert job["spec"]["activeDeadlineSeconds"] == 105
     assert job["spec"]["template"]["spec"]["restartPolicy"] == "Never"
@@ -383,3 +411,63 @@ def test_periodic_probe_deployment_sets_period_seconds():
     assert container_env["IPERF_EXPORTER_CLIENT_EXECUTION_MODE"] == "periodicProbe"
     assert container_env["IPERF_EXPORTER_CLIENT_PERIOD_SECONDS"] == "120"
     assert container_env["IPERF_EXPORTER_CLIENT_DURATION"] == "20"
+
+
+def test_long_topology_values_are_safe_labels_but_metrics_keep_full_values():
+    long_name = "node-" + ("x" * 80)
+    measurement = _measurement(network_modes=["host"])
+    measurement["metadata"]["name"] = "measurement-" + ("y" * 80)
+    measurement["spec"]["source"]["nodeName"] = long_name
+    sessions = expand_measurement_sessions(
+        measurement,
+        _profile(),
+        node_addresses={
+            long_name: "10.0.0.10",
+            "worker-b": "10.0.0.11",
+        },
+        default_image="iperf_exporter:dev",
+    )
+    session = next(
+        item for item in sessions if item["spec"]["direction"] == "sourceToDestination"
+    )
+
+    assert all(len(value) <= 63 for value in session["metadata"]["labels"].values())
+    assert session["metadata"]["labels"][SESSION_LABEL_KEYS["src_node"]] == (
+        kubernetes_label_value(long_name)
+    )
+    client_env = {
+        item["name"]: item["value"]
+        for item in build_client_deployment(session)["spec"]["template"]["spec"][
+            "containers"
+        ][0]["env"]
+    }
+    assert client_env["IPERF_EXPORTER_CONTEXT_SRC_NODE"] == long_name
+    assert (
+        client_env["IPERF_EXPORTER_CONTEXT_MEASUREMENT_ID"]
+        == measurement["metadata"]["name"]
+    )
+
+
+def test_explicit_empty_session_dimensions_are_rejected():
+    for field_name in ("directions", "networkModes"):
+        measurement = _measurement()
+        measurement["spec"][field_name] = []
+
+        try:
+            expand_measurement_sessions(
+                measurement,
+                _profile(),
+                node_addresses={
+                    "worker-a": "10.0.0.10",
+                    "worker-b": "10.0.0.11",
+                },
+                default_image="iperf_exporter:dev",
+            )
+        except ValueError as exc:
+            assert "must not be empty" in str(exc)
+        else:  # pragma: no cover - explicit failure branch
+            raise AssertionError(f"{field_name}=[] should be rejected")
+
+
+def test_label_values_normalize_non_ascii_characters():
+    assert kubernetes_label_value("nódé/東京") == "nd"

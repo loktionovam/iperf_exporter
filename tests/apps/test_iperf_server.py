@@ -80,6 +80,13 @@ class TestIPerfServer(TestCase):
         self.assertEqual(server.runtime_settings.listen_port, "5001")
         self.assertEqual(server.runtime_settings.datagram_size_bytes, "1280")
         self.assertEqual(server.runtime_settings.udp_buffer_bytes, "212992")
+        self.assertEqual(server.connections_total, 1)
+        self.assertEqual(server.samples_total, 1)
+        self.assertEqual(server.test_runs_total["success"], 1)
+        self.assertEqual(server.output["3"].test_duration_seconds, 5516.0)
+        self.assertIsNotNone(server.last_connection_timestamp_seconds)
+        self.assertIsNotNone(server.last_sample_timestamp_seconds)
+        self.assertIsNotNone(server.last_test_success_timestamp_seconds)
 
     def test_iperf_server_udp_triptime_variant_metrics(self):
         server = IPerfServer("5001", "udp", "1200", 1, 604800)
@@ -190,6 +197,14 @@ class TestIPerfServer(TestCase):
         self.assertEqual(getattr(server.output["3"], "interval_end"), interval_end)
         self.assertEqual(server.output["3"].current_metric_ttl, current_metric_ttl)
 
+    def test_iperf_server_counts_interval_lines_that_cannot_be_parsed(self):
+        server = IPerfServer("5001", "udp", "1200", 1, 604800)
+        server._raw_stdout = "[ 3] 1.00-2.00 sec unsupported interval output from iperf"
+
+        server.parse_output()
+
+        self.assertEqual(server.parse_errors_total, 1)
+
     def test_iperf_server_dead_client_not_reach_limit(self):
         server = None
         try:
@@ -238,6 +253,37 @@ class TestIPerfServer(TestCase):
             server.read_output()
             sleep(0.25)
             self.assertFalse("3" in server.output)
+            self.assertEqual(server.samples_evicted_total["ttl"], 1)
+            self.assertEqual(server.test_runs_total["timeout"], 0)
+        finally:
+            if server is not None:
+                server.stop()
+
+    def test_iperf_server_counts_timeout_when_connection_never_reports(self):
+        server = None
+        try:
+            server = IPerfServer(
+                "5001",
+                "udp",
+                "1200",
+                1,
+                1,
+                process_factory=lambda *args, **kwargs: PollProcess(),
+                cleanup_startup_delay=0,
+                cleanup_interval=0.02,
+                watchdog_interval=1,
+            )
+            server._raw_stdout = (
+                "[ 3] local 127.0.0.1%eth0 port 5001 connected with "
+                "127.0.0.2 port 52370"
+            )
+            server.parse_output()
+            server.run()
+            sleep(0.08)
+
+            self.assertNotIn("3", server.output)
+            self.assertEqual(server.samples_evicted_total["ttl"], 1)
+            self.assertEqual(server.test_runs_total["timeout"], 1)
         finally:
             if server is not None:
                 server.stop()

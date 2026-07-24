@@ -1,18 +1,15 @@
-FROM python:3-alpine AS base
+FROM python:3.14-alpine
 
-RUN apk update \
-    && apk upgrade --no-cache expat expat-dev libcrypto3 libssl3 \
-    && adduser -H -S -D -u 1000 iperf_operator
+RUN adduser -H -S -D -u 1000 iperf_operator
 
 WORKDIR /app
 
-COPY requirements-operator.txt /tmp/requirements-operator.txt
+COPY requirements-operator.txt ./
 
-RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && python -m pip install --no-cache-dir -r /tmp/requirements-operator.txt \
-    && find /usr/local/lib -name "*.pyc" -delete
+# hadolint ignore=DL3013
+RUN python -m pip install --no-cache-dir -r requirements-operator.txt
 
-COPY iperf_operator /app/iperf_operator
+COPY iperf_operator ./iperf_operator
 
 ARG VERSION=dev
 
@@ -21,7 +18,12 @@ USER iperf_operator
 LABEL maintainer=loktionovam@gmail.com
 LABEL version=${VERSION}
 
-ENV IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE=iperf_exporter:kind-demo \
-    PYTHONPATH=/app
+ENV IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE=loktionovam/iperf_exporter_server:${VERSION} \
+    IPERF_OPERATOR_VERSION=${VERSION} \
+    PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-ENTRYPOINT ["kopf", "run", "--standalone", "-A", "-m", "iperf_operator.controller"]
+EXPOSE 9869
+
+ENTRYPOINT ["kopf", "run", "--standalone", "-m", "iperf_operator.controller"]

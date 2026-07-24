@@ -2,6 +2,8 @@ import os
 from unittest import TestCase, mock
 
 from iperf_exporter.cli import (
+    _request_shutdown,
+    _shutdown_event,
     main,
     parse_args,
     run_client,
@@ -48,7 +50,7 @@ class TestCLI(TestCase):
             proto="tcp",
             len=1280,
             interval=1,
-            metric_ttl=604800,
+            metric_ttl=3600,
             additional_params="",
             context_client_bandwidth="",
             context_client_additional_params="",
@@ -75,15 +77,36 @@ class TestCLI(TestCase):
         args = parse_args(["--iperf_exporter_mode", "server"])
         idle_fn = mock.Mock()
 
+        collector = mock.Mock()
         run_exporter(
             args,
-            collector_cls=mock.Mock(return_value=mock.Mock()),
+            collector_cls=mock.Mock(return_value=collector),
             registry=mock.Mock(),
             http_server_factory=mock.Mock(),
             idle_fn=idle_fn,
         )
 
         idle_fn.assert_called_once_with()
+        collector.stop.assert_called_once_with()
+
+    @mock.patch.dict(os.environ, {"IPERF_EXPORTER_PORT": "not-a-port"})
+    def test_invalid_integer_environment_value_exits_cleanly(self):
+        with self.assertRaises(SystemExit) as error:
+            parse_args([])
+
+        self.assertEqual(error.exception.code, 2)
+
+    def test_rejects_out_of_range_port(self):
+        with self.assertRaises(SystemExit) as error:
+            parse_args(["--iperf_exporter_port", "65536"])
+
+        self.assertEqual(error.exception.code, 2)
+
+    def test_rejects_non_positive_interval(self):
+        with self.assertRaises(SystemExit) as error:
+            parse_args(["--iperf_exporter_interval", "0"])
+
+        self.assertEqual(error.exception.code, 2)
 
     def test_setup_client_runs_client(self):
         args = parse_args(
@@ -140,6 +163,15 @@ class TestCLI(TestCase):
         run_client(args, client_cls=client_cls, output_loop_fn=output_loop_fn)
 
         output_loop_fn.assert_called_once_with(client)
+        client.stop.assert_called_once_with()
+
+    def test_shutdown_signal_sets_shared_event(self):
+        _shutdown_event.clear()
+
+        _request_shutdown(15, None)
+
+        self.assertTrue(_shutdown_event.is_set())
+        _shutdown_event.clear()
 
     def test_run_client_probe_uses_single_run_loop(self):
         args = parse_args(

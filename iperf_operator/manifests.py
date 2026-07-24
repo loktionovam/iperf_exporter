@@ -7,6 +7,7 @@ from iperf_operator.specs import (
     session_client_peer,
     session_metric_context,
     session_headless_service_name,
+    session_resource_labels,
     session_selector_labels,
     session_server_statefulset_name,
     session_service_name,
@@ -16,7 +17,8 @@ from iperf_operator.specs import (
 def build_headless_service(session: dict) -> dict:
     exporter = session["spec"]["exporter"]
     protocol = session["spec"]["protocol"].upper()
-    labels = session_selector_labels(session, "server")
+    labels = session_resource_labels(session, "server")
+    selector_labels = session_selector_labels(session, "server")
     return {
         "apiVersion": "v1",
         "kind": "Service",
@@ -28,7 +30,7 @@ def build_headless_service(session: dict) -> dict:
         "spec": {
             "clusterIP": "None",
             "publishNotReadyAddresses": True,
-            "selector": labels,
+            "selector": selector_labels,
             "ports": [
                 {
                     "name": "iperf",
@@ -53,7 +55,8 @@ def build_cluster_ip_service(session: dict) -> dict | None:
 
     exporter = session["spec"]["exporter"]
     protocol = session["spec"]["protocol"].upper()
-    labels = session_selector_labels(session, "server")
+    labels = session_resource_labels(session, "server")
+    selector_labels = session_selector_labels(session, "server")
     return {
         "apiVersion": "v1",
         "kind": "Service",
@@ -63,7 +66,7 @@ def build_cluster_ip_service(session: dict) -> dict | None:
             "labels": labels,
         },
         "spec": {
-            "selector": labels,
+            "selector": selector_labels,
             "ports": [
                 {
                     "name": "iperf",
@@ -88,7 +91,8 @@ def build_cluster_ip_service(session: dict) -> dict | None:
 def build_server_statefulset(session: dict) -> dict:
     exporter = session["spec"]["exporter"]
     runtime = session["spec"]["runtime"]
-    labels = session_selector_labels(session, "server")
+    labels = session_resource_labels(session, "server")
+    selector_labels = session_selector_labels(session, "server")
     host_network = session["spec"]["networkMode"] == "host"
     return {
         "apiVersion": "apps/v1",
@@ -101,7 +105,7 @@ def build_server_statefulset(session: dict) -> dict:
         "spec": {
             "serviceName": session_headless_service_name(session),
             "replicas": 1,
-            "selector": {"matchLabels": labels},
+            "selector": {"matchLabels": selector_labels},
             "template": {
                 "metadata": {"labels": labels},
                 "spec": {
@@ -190,7 +194,8 @@ def _client_container(session: dict) -> dict:
 
 
 def build_client_deployment(session: dict) -> dict:
-    labels = session_selector_labels(session, "client")
+    labels = session_resource_labels(session, "client")
+    selector_labels = session_selector_labels(session, "client")
     host_network = session["spec"]["networkMode"] == "host"
     return {
         "apiVersion": "apps/v1",
@@ -202,7 +207,7 @@ def build_client_deployment(session: dict) -> dict:
         },
         "spec": {
             "replicas": 1,
-            "selector": {"matchLabels": labels},
+            "selector": {"matchLabels": selector_labels},
             "template": {
                 "metadata": {"labels": labels},
                 "spec": {
@@ -219,7 +224,7 @@ def build_client_deployment(session: dict) -> dict:
 
 
 def build_client_job(session: dict) -> dict:
-    labels = session_selector_labels(session, "client")
+    labels = session_resource_labels(session, "client")
     host_network = session["spec"]["networkMode"] == "host"
     duration_seconds = (
         session["spec"]["execution"].get("durationSeconds", 0)
@@ -235,7 +240,6 @@ def build_client_job(session: dict) -> dict:
         },
         "spec": {
             "backoffLimit": 0,
-            "ttlSecondsAfterFinished": 300,
             "activeDeadlineSeconds": int(duration_seconds) + 60,
             "template": {
                 "metadata": {"labels": labels},

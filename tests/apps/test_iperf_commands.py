@@ -1,3 +1,4 @@
+import subprocess
 from unittest import TestCase
 
 from iperf_exporter.iperf import IPerfClient, IPerfServer
@@ -150,3 +151,86 @@ class TestIPerfCommands(TestCase):
         self.assertIn("45", client.command)
         self.assertIn("--interval", server.command)
         self.assertIn("3", server.command)
+
+    def test_process_combines_stderr_and_waits_during_shutdown(self):
+        class Stream:
+            def readlines(self):
+                return []
+
+            def close(self):
+                pass
+
+        process = type(
+            "Process",
+            (),
+            {
+                "stdout": Stream(),
+                "stderr": None,
+                "poll": lambda self: None,
+                "terminate": lambda self: setattr(self, "terminated", True),
+                "wait": lambda self, timeout: 0,
+            },
+        )()
+        process_kwargs = {}
+
+        def process_factory(*args, **kwargs):
+            process_kwargs.update(kwargs)
+            return process
+
+        client = IPerfClient(
+            port=5001,
+            proto="tcp",
+            interval=1,
+            bandwidth="1M",
+            duration=2,
+            peer="127.0.0.1",
+            process_factory=process_factory,
+        )
+
+        client.run()
+        client.stop()
+
+        self.assertIs(process_kwargs["stderr"], subprocess.STDOUT)
+        self.assertTrue(process.terminated)
+        self.assertFalse(client.is_running())
+
+    def test_hung_process_is_killed_after_shutdown_timeout(self):
+        class Process:
+            stdout = None
+            stderr = None
+
+            def __init__(self):
+                self.wait_calls = 0
+                self.killed = False
+
+            def poll(self):
+                return None
+
+            def terminate(self):
+                pass
+
+            def wait(self, timeout):
+                self.wait_calls += 1
+                if self.wait_calls == 1:
+                    raise subprocess.TimeoutExpired("iperf", timeout)
+                return -9
+
+            def kill(self):
+                self.killed = True
+
+        process = Process()
+        client = IPerfClient(
+            port=5001,
+            proto="tcp",
+            interval=1,
+            bandwidth="1M",
+            duration=2,
+            peer="127.0.0.1",
+            process_factory=lambda *args, **kwargs: process,
+        )
+
+        client.run()
+        client.stop(timeout=0.01)
+
+        self.assertTrue(process.killed)
+        self.assertEqual(process.wait_calls, 2)

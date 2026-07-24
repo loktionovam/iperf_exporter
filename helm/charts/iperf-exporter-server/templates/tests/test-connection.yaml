@@ -5,19 +5,46 @@ metadata:
   name: "{{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}-test-connection"
   labels:
     {{- include "iperf-exporter-server.labels" . | nindent 4 }}
-    app.kubernetes.io/component: server
+    app.kubernetes.io/component: test
   annotations:
     "helm.sh/hook": test
 spec:
-  containers:
-    - name: curl
-      image: alpine
-      command: ["/bin/sh"]
-      args:
-        - -cx
-        - >
-          sleep 5 &&
-          apk --update add curl &&
-          curl http://{{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}:{{ .Values.server.service.port }}/metrics
   restartPolicy: Never
+  securityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 4 }}
+  containers:
+    - name: iperf-and-metrics
+      image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+      imagePullPolicy: {{ .Values.image.pullPolicy }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      command:
+        - /bin/sh
+        - -ec
+      args:
+        - |
+          python -m iperf_exporter
+          for attempt in 1 2 3 4 5; do
+            if wget -qO- "http://{{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") }}:{{ .Values.server.service.port }}/metrics" |
+              grep -q "iperf_exporter_{{ .Values.server.config.proto }}_bandwidth"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      env:
+        - name: IPERF_EXPORTER_MODE
+          value: client
+        - name: IPERF_EXPORTER_PORT
+          value: {{ .Values.server.config.port | quote }}
+        - name: IPERF_EXPORTER_PROTO
+          value: {{ .Values.server.config.proto | quote }}
+        - name: IPERF_EXPORTER_CLIENT_PEER
+          value: {{ include "iperf-exporter-server.componentName" (dict "root" . "component" "server") | quote }}
+        - name: IPERF_EXPORTER_CLIENT_DURATION
+          value: "3"
+        - name: IPERF_EXPORTER_CLIENT_EXECUTION_MODE
+          value: probe
+        - name: IPERF_EXPORTER_CLIENT_BANDWIDTH
+          value: {{ .Values.client.config.bandwidth | quote }}
 {{- end }}

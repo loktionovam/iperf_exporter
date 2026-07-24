@@ -1,3 +1,4 @@
+import subprocess
 from unittest import TestCase
 
 from iperf_exporter.socket_stats import SocketStatsCollector, TCPSocketSnapshot
@@ -11,6 +12,18 @@ class FakeCompletedProcess:
 
 
 class TestSocketStatsCollector(TestCase):
+    def test_timeout_returns_no_metrics(self):
+        collector = SocketStatsCollector(
+            port=5001,
+            proto="tcp",
+            timeout=0.01,
+            runner=lambda command, **kwargs: (_ for _ in ()).throw(
+                subprocess.TimeoutExpired(command, kwargs["timeout"])
+            ),
+        )
+
+        self.assertEqual(collector.collect(), {})
+
     def test_collect_udp_socket_queues(self):
         collector = SocketStatsCollector(
             port=5001,
@@ -42,6 +55,7 @@ class TestSocketStatsCollector(TestCase):
                     " cubic wscale:10,10 rto:201 rtt:0.024/0.014 ato:40 "
                     "mss:1448 pmtu:1500 rcvmss:1448 advmss:1448 cwnd:10 "
                     "bytes_sent:28 bytes_acked:28 bytes_received:249430080 "
+                    "bytes_retrans:4096 retrans:0/3 "
                     "segs_out:8119 segs_in:173177 data_segs_out:1 "
                     "data_segs_in:173174 send 4.826666667Gbps "
                     "lastsnd:1902737 lastrcv:736 lastack:736 pacing_rate "
@@ -72,3 +86,22 @@ class TestSocketStatsCollector(TestCase):
         self.assertEqual(snapshot.metrics["rcv_wscale"], 10.0)
         self.assertEqual(snapshot.metrics["snd_wnd_bytes"], 64_512.0)
         self.assertEqual(snapshot.metrics["rcv_wnd_bytes"], 161_792.0)
+        self.assertEqual(snapshot.metrics["bytes_retransmitted_total"], 4096.0)
+        self.assertEqual(snapshot.metrics["retransmissions_total"], 3.0)
+
+    def test_health_snapshot_records_bounded_failure_reason(self):
+        collector = SocketStatsCollector(
+            port=5001,
+            proto="tcp",
+            timeout=0.01,
+            runner=lambda command, **kwargs: (_ for _ in ()).throw(
+                subprocess.TimeoutExpired(command, kwargs["timeout"])
+            ),
+        )
+
+        collector.collect()
+        health = collector.health_snapshot()
+
+        self.assertEqual(health["error_counts"], {"timeout": 1})
+        self.assertGreaterEqual(health["last_duration_seconds"], 0)
+        self.assertIsNone(health["last_success_timestamp_seconds"])

@@ -1,6 +1,6 @@
 # iperf-exporter-server
 
-![Version: 0.1.2-1-gcf8f1c7](https://img.shields.io/badge/Version-0.1.2--1--gcf8f1c7-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.2-1-gcf8f1c7](https://img.shields.io/badge/AppVersion-0.1.2--1--gcf8f1c7-informational?style=flat-square)
+![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.0.0](https://img.shields.io/badge/AppVersion-2.0.0-informational?style=flat-square)
 
 IPerf prometheus metrics exporter with optional client workload
 
@@ -61,25 +61,29 @@ client:
 | client.resources.requests.memory | string | `"64Mi"` | Memory request for the client container. |
 | client.tolerations | list | `[]` | Tolerations for the client workload. |
 | fullnameOverride | string | `""` | Override the full generated release name. |
-| image | object | `{"pullPolicy":"IfNotPresent","repository":"loktionovam/iperf_exporter_server","tag":"0.1.2-1-gcf8f1c7"}` | Container image settings shared by server and optional client workloads. |
+| image | object | `{"pullPolicy":"IfNotPresent","repository":"loktionovam/iperf_exporter_server","tag":""}` | Container image settings shared by server and optional client workloads. |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes image pull policy. |
 | image.repository | string | `"loktionovam/iperf_exporter_server"` | Image repository for the exporter containers. |
-| image.tag | string | `"0.1.2-1-gcf8f1c7"` | Image tag to deploy. |
+| image.tag | string | `""` | Image tag to deploy. |
 | imagePullSecrets | list | `[]` | Image pull secrets for private registries. |
 | nameOverride | string | `""` | Override the chart name used in resource names. |
-| podSecurityContext | object | `{}` | Pod-level security context shared by workloads. |
-| securityContext | object | `{"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":1000}` | Container security context shared by workloads. |
+| podSecurityContext | object | `{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context shared by workloads. |
+| podSecurityContext.runAsNonRoot | bool | `true` | Require every container in the pod to run as non-root. |
+| podSecurityContext.seccompProfile | object | `{"type":"RuntimeDefault"}` | Apply the default container-runtime seccomp profile. |
+| securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"runAsUser":1000}` | Container security context shared by workloads. |
+| securityContext.allowPrivilegeEscalation | bool | `false` | Prevent gaining extra privileges. |
+| securityContext.capabilities | object | `{"drop":["ALL"]}` | Drop all Linux capabilities. |
 | securityContext.readOnlyRootFilesystem | bool | `true` | Mount the container filesystem as read-only. |
 | securityContext.runAsNonRoot | bool | `true` | Require the container to run as a non-root user. |
 | securityContext.runAsUser | int | `1000` | Numeric UID used by the container process. |
-| server | object | `{"affinity":{},"config":{"additionalParams":"","clientAdditionalParamsHint":"","clientBandwidthHint":"","len":1280,"metricTtl":604800,"pathTraceMaxHops":16,"pathTraceTimeout":10,"pathTraceTtl":300,"port":5001,"proto":"udp"},"enabled":true,"ingress":{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"iperf-exporter.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]},"nodeSelector":{},"podAnnotations":{},"podLabels":{},"replicaCount":1,"resources":{"limits":{"cpu":"100m","memory":"64Mi"},"requests":{"cpu":"100m","memory":"64Mi"}},"service":{"port":9868,"type":"ClusterIP"},"tolerations":[]}` | Server workload configuration. |
+| server | object | `{"affinity":{},"config":{"additionalParams":"","clientAdditionalParamsHint":"","clientBandwidthHint":"","len":1280,"metricTtl":3600,"pathTraceMaxHops":16,"pathTraceTimeout":10,"pathTraceTtl":300,"port":5001,"proto":"udp"},"enabled":true,"ingress":{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"iperf-exporter.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]},"nodeSelector":{},"podAnnotations":{},"podLabels":{},"replicaCount":1,"resources":{"limits":{"cpu":"100m","memory":"64Mi"},"requests":{"cpu":"100m","memory":"64Mi"}},"service":{"port":9868,"type":"ClusterIP"},"tolerations":[]}` | Server workload configuration. |
 | server.affinity | object | `{}` | Affinity rules for the server workload. |
-| server.config | object | `{"additionalParams":"","clientAdditionalParamsHint":"","clientBandwidthHint":"","len":1280,"metricTtl":604800,"pathTraceMaxHops":16,"pathTraceTimeout":10,"pathTraceTtl":300,"port":5001,"proto":"udp"}` | Environment-level server settings passed to the exporter. |
+| server.config | object | `{"additionalParams":"","clientAdditionalParamsHint":"","clientBandwidthHint":"","len":1280,"metricTtl":3600,"pathTraceMaxHops":16,"pathTraceTimeout":10,"pathTraceTtl":300,"port":5001,"proto":"udp"}` | Environment-level server settings passed to the exporter. |
 | server.config.additionalParams | string | `""` | Extra iperf server flags appended to the server command, for example `--histograms=100u,20`. |
 | server.config.clientAdditionalParamsHint | string | `""` | Optional client extra params hint shown in Grafana measurement-context tables when the client is external to this chart. |
 | server.config.clientBandwidthHint | string | `""` | Optional client bandwidth hint shown in Grafana measurement-context tables when the client is external to this chart. |
 | server.config.len | int | `1280` | Buffer length passed to the iperf server. |
-| server.config.metricTtl | int | `604800` | TTL for inactive peer metrics before they are removed. |
+| server.config.metricTtl | int | `3600` | TTL for inactive peer metrics before they are removed. |
 | server.config.pathTraceMaxHops | int | `16` | Maximum number of hops used by `tracepath`. |
 | server.config.pathTraceTimeout | int | `10` | Timeout in seconds for one `tracepath` execution. |
 | server.config.pathTraceTtl | int | `300` | Seconds to cache `tracepath` snapshots. Set to `0` to disable path-trace metrics. |
@@ -109,7 +113,8 @@ client:
 | serviceAccount.annotations | object | `{}` | Additional annotations for the ServiceAccount. |
 | serviceAccount.create | bool | `true` | Create a dedicated ServiceAccount for the server workload. |
 | serviceAccount.name | string | `""` | Existing ServiceAccount name to use when `create=false`. |
-| serviceMonitor | object | `{"enabled":true,"interval":"1m","port":"http-metrics"}` | ServiceMonitor settings for Prometheus Operator integration. |
-| serviceMonitor.enabled | bool | `true` | Create a ServiceMonitor for the server metrics service. |
+| serviceMonitor | object | `{"additionalLabels":{},"enabled":false,"interval":"1m","port":"http-metrics"}` | ServiceMonitor settings for Prometheus Operator integration. |
+| serviceMonitor.additionalLabels | object | `{}` | Extra labels used by the Prometheus Operator selector. |
+| serviceMonitor.enabled | bool | `false` | Create a ServiceMonitor for the server metrics service. |
 | serviceMonitor.interval | string | `"1m"` | Scrape interval used by the ServiceMonitor. |
 | serviceMonitor.port | string | `"http-metrics"` | Named service port scraped by the ServiceMonitor. |

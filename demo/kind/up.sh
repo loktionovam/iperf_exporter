@@ -21,6 +21,14 @@ REMOTE_KUBECONFIG_SECRET_KEY="${REMOTE_KUBECONFIG_SECRET_KEY:-cluster-b.kubeconf
 
 cd "${ROOT_DIR}"
 
+if [[ -x "${ROOT_DIR}/.venv/bin/python" ]]; then
+  PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+elif [[ -x "${ROOT_DIR}/venv/bin/python" ]]; then
+  PYTHON_BIN="${ROOT_DIR}/venv/bin/python"
+else
+  PYTHON_BIN="${PYTHON_BIN:-python3}"
+fi
+
 cluster_exists() {
   local cluster_name="$1"
   kind get clusters | grep -qx "${cluster_name}"
@@ -53,7 +61,7 @@ render_remote_kubeconfig() {
       -o jsonpath="{.clusters[0].cluster.certificate-authority-data}"
   )"
 
-  venv/bin/python - <<'PY' "${output_path}" "${REMOTE_CLUSTER_ID}" "${server}" "${ca_data}" "${token}"
+  "${PYTHON_BIN}" - <<'PY' "${output_path}" "${REMOTE_CLUSTER_ID}" "${server}" "${ca_data}" "${token}"
 import json
 import sys
 
@@ -176,9 +184,16 @@ kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" rollout restart \
   deploy/prometheus \
   deploy/grafana
 
-EXPORTER_PODS="$(kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" get pod -l app.kubernetes.io/name=iperf-exporter -o name || true)"
-if [[ -n "${EXPORTER_PODS}" ]]; then
-  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" delete ${EXPORTER_PODS} --ignore-not-found=true >/dev/null
+EXPORTER_PODS=()
+while IFS= read -r pod_name; do
+  [[ -n "${pod_name}" ]] && EXPORTER_PODS+=("${pod_name}")
+done < <(
+  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" get pod \
+    -l app.kubernetes.io/name=iperf-exporter -o name || true
+)
+if ((${#EXPORTER_PODS[@]} > 0)); then
+  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" delete \
+    "${EXPORTER_PODS[@]}" --ignore-not-found=true >/dev/null
 fi
 
 SERVER_WORKLOADS="$(kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" get statefulset -l app.kubernetes.io/name=iperf-exporter,app.kubernetes.io/component=server -o name || true)"

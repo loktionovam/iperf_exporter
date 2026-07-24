@@ -71,6 +71,9 @@ spec:
             - name: IPERF_EXPORTER_SERVER_ADDITIONAL_PARAMS
               value: {{ .Values.server.config.additionalParams | quote }}
           ports:
+            - name: iperf
+              containerPort: {{ .Values.server.config.port }}
+              protocol: {{ .Values.server.config.proto | upper }}
             - name: http-metrics
               containerPort: {{ .Values.server.service.port }}
               protocol: TCP

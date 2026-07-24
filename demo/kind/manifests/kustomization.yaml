@@ -8,9 +8,12 @@ resources:
   - measurementsessions-crd.yaml
   - remoteclusters-crd.yaml
   - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
   - clusterrole.yaml
   - clusterrolebinding.yaml
   - deployment.yaml
+  - operator-service.yaml
   - prometheus-serviceaccount.yaml
   - prometheus-role.yaml
   - prometheus-rolebinding.yaml

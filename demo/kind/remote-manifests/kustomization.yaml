@@ -4,5 +4,7 @@ namespace: iperf-exporter-demo
 resources:
   - namespace.yaml
   - serviceaccount.yaml
+  - role.yaml
+  - rolebinding.yaml
   - clusterrole.yaml
   - clusterrolebinding.yaml

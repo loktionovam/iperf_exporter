@@ -421,7 +421,7 @@
       },
       "targets": [
         {
-          "expr": "max by (connection_pair, peer_port, hop_index, hop_address, hop_summary) (iperf_exporter_tcp_path_trace_hop_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
+          "expr": "max by (connection_pair, peer_port, hop_index, hop_address) (iperf_exporter_tcp_path_trace_hop_info{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\", trace_direction=\"server_to_client\"})",
           "format": "time_series",
           "instant": true,
           "legendFormat": "__auto",
@@ -451,15 +451,13 @@
               "connection_pair": 0,
               "peer_port": 1,
               "hop_index": 2,
-              "hop_address": 3,
-              "hop_summary": 4
+              "hop_address": 3
             },
             "renameByName": {
               "connection_pair": "Client->Server Pair",
               "peer_port": "Client Port",
               "hop_address": "Hop Address",
-              "hop_index": "Hop",
-              "hop_summary": "Details"
+              "hop_index": "Hop"
             }
           }
         }
@@ -1231,6 +1229,359 @@
       ],
       "title": "TCP Congestion and Scaling",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 81
+      },
+      "id": 106,
+      "panels": [],
+      "title": "Freshness and Retransmissions",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Seconds since the newest valid TCP interval report for the selected topology.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 82
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "(time() - max(iperf_exporter_sample_timestamp_seconds{proto=\"tcp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"})) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest TCP Sample Age",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "TCP test errors and timeouts observed during the last hour.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 82
+      },
+      "id": 22,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(iperf_exporter_test_runs_total{proto=\"tcp\",result=~\"error|timeout\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[1h])) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Test Failures (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "TCP parser errors plus best-effort collector failures during the last hour.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 82
+      },
+      "id": 23,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "(sum(increase(iperf_exporter_parse_errors_total{proto=\"tcp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[1h])) or vector(0)) + (sum(increase(iperf_exporter_collector_errors_total{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[1h])) or vector(0))",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Exporter Errors (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Background TCP path-trace failures during the last hour.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 82
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(iperf_exporter_path_trace_failures_total{proto=\"tcp\",measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\"}[1h])) or vector(0)",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Trace Failures (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Per-second retransmission rate from ss -tin. Counters reset when the socket is recreated.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 87
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(iperf_exporter_tcp_socket_retransmissions_total{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}[$__rate_interval]) or vector(0)",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Retransmissions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Retransmitted-byte rate divided by sent-byte rate. The denominator is clamped to avoid division by zero.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 87
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(100 * rate(iperf_exporter_tcp_socket_bytes_retransmitted_total{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}[$__rate_interval]) / clamp_min(rate(iperf_exporter_tcp_socket_bytes_sent{measurement_id=~\"$measurement_id\", profile_ref=~\"$profile_ref\", execution_mode=~\"$execution_mode\", direction=~\"$direction\", src_cluster=~\"$src_cluster\", src_node=~\"$src_node\", dst_cluster=~\"$dst_cluster\", dst_node=~\"$dst_node\", network_mode=~\"$network_mode\", connection_pair=~\"$connection_pair\", peer_port=~\"$session_port\"}[$__rate_interval]), 1)) or vector(0)",
+          "legendFormat": "{{connection_pair}} / {{peer_port}}",
+          "refId": "A"
+        }
+      ],
+      "title": "TCP Retransmitted Byte Ratio",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
@@ -1553,6 +1904,6 @@
   "timezone": "",
   "title": "IPerf Exporter TCP Quality",
   "uid": "iperf-exporter-tcp-quality",
-  "version": 14,
+  "version": 15,
   "weekStart": ""
 }

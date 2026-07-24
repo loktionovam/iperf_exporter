@@ -4,10 +4,7 @@ import hashlib
 import re
 from copy import deepcopy
 
-from iperf_operator import (
-    API_VERSION_FULL,
-    MEASUREMENT_SESSION_PLURAL,
-)
+from iperf_operator import API_VERSION_FULL
 
 DEFAULT_IMAGE_PULL_POLICY = "IfNotPresent"
 DEFAULT_DIRECTIONS = ("sourceToDestination", "destinationToSource")
@@ -65,7 +62,7 @@ DEFAULT_EXPORTER_CONFIG = {
     "bindPort": 9868,
     "interval": 1,
     "len": 1280,
-    "metricTTL": 604800,
+    "metricTTL": 3600,
     "debug": False,
     "clientBandwidth": "1M",
     "clientDuration": 315360000,
@@ -76,9 +73,6 @@ DEFAULT_EXPORTER_CONFIG = {
     "pathTraceTTL": 300,
     "pathTraceMaxHops": 16,
     "pathTraceTimeout": 10,
-    "env": {},
-    "serverEnv": {},
-    "clientEnv": {},
 }
 
 
@@ -115,11 +109,15 @@ def stable_name(*parts: str, max_length: int = 63) -> str:
     return f"{trimmed}-{digest}"
 
 
+def kubernetes_label_value(value: str) -> str:
+    return stable_name(str(value), max_length=63)
+
+
 def _slugify(value: str) -> str:
     allowed = []
     lower = str(value).lower()
     for char in lower:
-        if char.isalnum():
+        if char.isascii() and char.isalnum():
             allowed.append(char)
         elif char in {".", "_", "-", "/"}:
             allowed.append("-")
@@ -133,6 +131,8 @@ def normalize_exporter_config(protocol: str, config: dict | None) -> dict:
 
     merged = deepcopy(DEFAULT_EXPORTER_CONFIG)
     merged.update(config or {})
+    for removed_field in ("env", "serverEnv", "clientEnv"):
+        merged.pop(removed_field, None)
     merged["protocol"] = protocol
     merged["port"] = int(merged["port"])
     merged["bindPort"] = int(merged["bindPort"])
@@ -144,24 +144,36 @@ def normalize_exporter_config(protocol: str, config: dict | None) -> dict:
     merged["pathTraceMaxHops"] = int(merged["pathTraceMaxHops"])
     merged["pathTraceTimeout"] = int(merged["pathTraceTimeout"])
     merged["debug"] = bool(merged["debug"])
-    merged["env"] = {str(k): str(v) for k, v in (merged.get("env") or {}).items()}
-    merged["serverEnv"] = {
-        str(k): str(v) for k, v in (merged.get("serverEnv") or {}).items()
-    }
-    merged["clientEnv"] = {
-        str(k): str(v) for k, v in (merged.get("clientEnv") or {}).items()
-    }
+
+    for field_name in ("port", "bindPort"):
+        if not 1 <= merged[field_name] <= 65535:
+            raise ValueError(f"exporter.{field_name} must be between 1 and 65535")
+    for field_name in (
+        "interval",
+        "len",
+        "clientDuration",
+        "pathTraceMaxHops",
+        "pathTraceTimeout",
+    ):
+        if merged[field_name] <= 0:
+            raise ValueError(f"exporter.{field_name} must be positive")
+    for field_name in ("metricTTL", "pathTraceTTL"):
+        if merged[field_name] < 0:
+            raise ValueError(f"exporter.{field_name} must not be negative")
     return merged
 
 
 def normalize_runtime(runtime: dict | None, default_image: str) -> dict:
     runtime_spec = runtime or {}
-    return {
+    normalized = {
         "image": runtime_spec.get("image", default_image),
         "imagePullPolicy": runtime_spec.get(
             "imagePullPolicy", DEFAULT_IMAGE_PULL_POLICY
         ),
     }
+    if normalized["imagePullPolicy"] not in {"Always", "IfNotPresent", "Never"}:
+        raise ValueError("runtime.imagePullPolicy is invalid")
+    return normalized
 
 
 def normalize_execution(execution: dict | None) -> dict:
@@ -173,13 +185,19 @@ def normalize_execution(execution: dict | None) -> dict:
     every_seconds = parse_duration_seconds(every, "execution.every") if every else 0
     if mode == "periodicProbe" and every_seconds <= 0:
         raise ValueError("execution.every is required for execution.mode=periodicProbe")
-    return {
+    normalized = {
         "mode": mode,
-        "every": every,
-        "everySeconds": every_seconds,
-        "durationSeconds": int(execution_spec.get("durationSeconds", 0) or 0),
-        "allowOverlap": bool(execution_spec.get("allowOverlap", False)),
     }
+    if mode == "periodicProbe":
+        normalized["every"] = every
+        normalized["everySeconds"] = every_seconds
+
+    duration_seconds = int(execution_spec.get("durationSeconds", 0) or 0)
+    if "durationSeconds" in execution_spec and duration_seconds <= 0:
+        raise ValueError("execution.durationSeconds must be positive")
+    if duration_seconds > 0:
+        normalized["durationSeconds"] = duration_seconds
+    return normalized
 
 
 def normalize_endpoint(endpoint: dict | None, field_name: str) -> dict:
@@ -191,7 +209,6 @@ def normalize_endpoint(endpoint: dict | None, field_name: str) -> dict:
     return {
         "cluster": endpoint_spec.get("cluster", "local"),
         "nodeName": node_name,
-        "nodeAddress": endpoint_spec.get("nodeAddress", ""),
     }
 
 
@@ -238,19 +255,33 @@ def expand_measurement_sessions(
 
     source = normalize_endpoint(spec.get("source"), "source")
     destination = normalize_endpoint(spec.get("destination"), "destination")
-    source["nodeAddress"] = source["nodeAddress"] or _resolve_node_address(
+    source["nodeAddress"] = _resolve_node_address(
         node_addresses, source["cluster"], source["nodeName"]
     )
-    destination["nodeAddress"] = destination["nodeAddress"] or _resolve_node_address(
+    destination["nodeAddress"] = _resolve_node_address(
         node_addresses, destination["cluster"], destination["nodeName"]
     )
 
-    directions = tuple(spec.get("directions") or DEFAULT_DIRECTIONS)
+    directions_value = spec.get("directions")
+    directions = tuple(
+        DEFAULT_DIRECTIONS if directions_value is None else directions_value
+    )
+    if not directions:
+        raise ValueError("directions must not be empty")
+    if len(directions) != len(set(directions)):
+        raise ValueError("directions must contain unique values")
     for direction in directions:
         if direction not in SUPPORTED_DIRECTIONS:
             raise ValueError(f"Unsupported direction: {direction}")
 
-    network_modes = tuple(spec.get("networkModes") or DEFAULT_NETWORK_MODES)
+    network_modes_value = spec.get("networkModes")
+    network_modes = tuple(
+        DEFAULT_NETWORK_MODES if network_modes_value is None else network_modes_value
+    )
+    if not network_modes:
+        raise ValueError("networkModes must not be empty")
+    if len(network_modes) != len(set(network_modes)):
+        raise ValueError("networkModes must contain unique values")
     for network_mode in network_modes:
         if network_mode not in SUPPORTED_NETWORK_MODES:
             raise ValueError(f"Unsupported network mode: {network_mode}")
@@ -320,14 +351,16 @@ def build_session_labels(
     destination: dict,
 ) -> dict[str, str]:
     return {
-        SESSION_LABEL_KEYS["measurement"]: measurement_name,
-        SESSION_LABEL_KEYS["session"]: _slugify(session_id),
-        SESSION_LABEL_KEYS["direction"]: _slugify(direction),
-        SESSION_LABEL_KEYS["network_mode"]: network_mode,
-        SESSION_LABEL_KEYS["src_node"]: source["nodeName"],
-        SESSION_LABEL_KEYS["dst_node"]: destination["nodeName"],
-        SESSION_LABEL_KEYS["src_cluster"]: source["cluster"],
-        SESSION_LABEL_KEYS["dst_cluster"]: destination["cluster"],
+        SESSION_LABEL_KEYS["measurement"]: kubernetes_label_value(measurement_name),
+        SESSION_LABEL_KEYS["session"]: kubernetes_label_value(session_id),
+        SESSION_LABEL_KEYS["direction"]: kubernetes_label_value(direction),
+        SESSION_LABEL_KEYS["network_mode"]: kubernetes_label_value(network_mode),
+        SESSION_LABEL_KEYS["src_node"]: kubernetes_label_value(source["nodeName"]),
+        SESSION_LABEL_KEYS["dst_node"]: kubernetes_label_value(destination["nodeName"]),
+        SESSION_LABEL_KEYS["src_cluster"]: kubernetes_label_value(source["cluster"]),
+        SESSION_LABEL_KEYS["dst_cluster"]: kubernetes_label_value(
+            destination["cluster"]
+        ),
     }
 
 
@@ -379,10 +412,6 @@ def build_exporter_env(
             {"name": env_name, "value": str((context_labels or {}).get(key, ""))}
         )
 
-    common_env = exporter.get("env", {})
-    role_env = exporter.get("serverEnv" if mode == "server" else "clientEnv", {})
-    for name, value in sorted({**common_env, **role_env}.items()):
-        env.append({"name": name, "value": value})
     return env
 
 
@@ -404,16 +433,28 @@ def session_selector_labels(session: dict, role: str) -> dict[str, str]:
     return {
         "app.kubernetes.io/name": "iperf-exporter",
         "app.kubernetes.io/component": role,
+        SESSION_LABEL_KEYS["session"]: session["metadata"]["labels"][
+            SESSION_LABEL_KEYS["session"]
+        ],
+    }
+
+
+def session_resource_labels(session: dict, role: str) -> dict[str, str]:
+    return {
         **session["metadata"].get("labels", {}),
+        **session_selector_labels(session, role),
     }
 
 
 def session_metric_context(session: dict) -> dict[str, str]:
-    labels = session["metadata"].get("labels", {})
+    measurement_name = session["spec"].get("measurementRef", {}).get("name", "")
     return {
-        "measurement_id": labels.get(SESSION_LABEL_KEYS["measurement"], ""),
+        "measurement_id": measurement_name,
         "profile_ref": session["spec"].get("profileRef", {}).get("name", ""),
-        "session_id": labels.get(SESSION_LABEL_KEYS["session"], ""),
+        "session_id": (
+            f"{measurement_name}:{session['spec'].get('networkMode', '')}:"
+            f"{session['spec'].get('direction', '')}"
+        ),
         "execution_mode": session["spec"].get("execution", {}).get("mode", ""),
         "direction": session["spec"].get("direction", ""),
         "network_mode": session["spec"].get("networkMode", ""),
@@ -491,9 +532,10 @@ def session_client_peer(session: dict) -> str:
 
 
 def session_summary(session: dict) -> dict:
+    context = session_metric_context(session)
     return {
         "name": session["metadata"]["name"],
-        "sessionId": session["metadata"]["labels"][SESSION_LABEL_KEYS["session"]],
+        "sessionId": context["session_id"],
         "direction": session["spec"]["direction"],
         "networkMode": session["spec"]["networkMode"],
         "executionMode": session["spec"].get("execution", {}).get("mode", ""),

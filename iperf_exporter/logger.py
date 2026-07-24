@@ -1,30 +1,26 @@
 import logging
-import os
-from pythonjsonlogger import jsonlogger
+
+from pythonjsonlogger.json import JsonFormatter
+
+log = logging.getLogger("iperf_exporter")
 
 
-def _debug_enabled(value: str) -> bool:
-    return value.lower() in {"1", "true", "yes", "on", "debug"}
+def configure_logging(*, debug: bool, mode: str) -> None:
+    log.name = (
+        f"iperf_exporter_{mode}" if mode in {"server", "client"} else "iperf_exporter"
+    )
+    log.setLevel(logging.DEBUG if debug else logging.INFO)
+    log.propagate = False
+
+    if not log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            JsonFormatter(fmt="%(asctime)s %(levelname)s %(name)s %(message)s")
+        )
+        log.addHandler(handler)
+
+    if debug:
+        log.debug("Current log level is %s", logging.getLevelName(log.level))
 
 
-DEBUG = _debug_enabled(os.environ.get("DEBUG", "0"))
-MODE = os.environ.get("IPERF_EXPORTER_MODE", "server")
-if MODE == "server":
-    log = logging.getLogger("iperf_exporter_server")
-elif MODE == "client":
-    log = logging.getLogger("iperf_exporter_client")
-else:
-    log = logging.getLogger("iperf_exporter")
-
-log.setLevel(logging.DEBUG if DEBUG else logging.INFO)
-
-logHandler = logging.StreamHandler()
-formatter = jsonlogger.JsonFormatter(
-    fmt="%(asctime)s %(levelname)s %(name)s %(message)s"
-)
-logHandler.setFormatter(formatter)
-if not log.handlers:
-    log.addHandler(logHandler)
-
-if DEBUG:
-    log.debug(f"Current log level is {logging.getLevelName(log.level)}")
+configure_logging(debug=False, mode="")

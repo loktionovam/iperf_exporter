@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iperf_exporter"
+version = "2.0.0"
+description = "Prometheus exporter for iperf server metrics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+authors = [
+  { name = "Aleksandr Loktionov", email = "loktionovam@gmail.com" },
+]
+keywords = ["docker", "prometheus", "exporter", "iperf"]
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/loktionovam/iperf_exporter"
+
+[project.scripts]
+iperf_exporter = "iperf_exporter.cli:main"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["iperf_exporter", "iperf_exporter.*"]
+
+[tool.black]
+target-version = ["py310"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

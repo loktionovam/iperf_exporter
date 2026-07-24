@@ -1,100 +1,202 @@
-name: IPerf prometheus exporter
+name: IPerf exporter CI
 
-on: [pull_request, push, workflow_dispatch]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
 
 jobs:
-  build-apps:
-
-    runs-on: ubuntu-20.04
+  apps:
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10.0"]
-
+        python-version:
+          - "3.10"
+          - "3.14"
+    permissions:
+      contents: read
+      id-token: write
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-    - name: Test iperf exporter application
-      run: |
-        make test-apps
-    - name: "Upload coverage to Codecov"
-      uses: codecov/codecov-action@v2
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
-
-  build-images:
-    runs-on: ubuntu-20.04
-    name: Build iperf exporter image
-    needs: [build-apps]
-    env:
-      IPERF_EXPORTER_SERVER_IMAGE_NAME: loktionovam/iperf_exporter_server
-      IPERF_EXPORTER_CLIENT_IMAGE_NAME: loktionovam/iperf_exporter_client
-    steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1.6.0
-      - name: Build and test iperf exporter images
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install development dependencies
         run: |
-          make build-images
           python -m pip install --upgrade pip
-          if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+          python -m pip install -r requirements-dev.txt
+      - name: Test applications
+        run: make test-apps
+      - name: Audit Python dependencies
+        if: matrix.python-version == '3.14'
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r requirements.txt
+          pip-audit -r requirements-operator.txt
+      - name: Upload coverage
+        if: matrix.python-version == '3.14'
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          fail_ci_if_error: true
+          use_oidc: true
+
+  manifests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v5
+      - name: Validate Helm, Kustomize, Compose, and dashboards
+        run: |
+          make validate-manifests
+          helm lint --strict helm/charts/iperf-exporter-server
+          helm template udp-test helm/charts/iperf-exporter-server >/dev/null
+          helm template tcp-test helm/charts/iperf-exporter-server \
+            --set server.config.proto=tcp \
+            --set client.config.proto=tcp >/dev/null
+      - name: Lint Dockerfiles
+        run: |
+          docker run --rm -i hadolint/hadolint:v2.14.0 < Dockerfile
+          docker run --rm -i hadolint/hadolint:v2.14.0 < Dockerfile.operator
+
+  images:
+    runs-on: ubuntu-24.04
+    needs:
+      - apps
+      - manifests
+    env:
+      IPERF_EXPORTER_IMAGE_NAME: loktionovam/iperf_exporter_server
+      IPERF_OPERATOR_IMAGE_NAME: loktionovam/iperf_operator
+      IPERF_EXPORTER_IMAGE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('ci-{0}', github.run_id) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: docker/setup-buildx-action@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Build exporter and operator images
+        run: make build-images
+      - name: Run container smoke tests
+        run: |
+          python -m pip install -r requirements-test.txt
           make test-images
-      - name: Log into registry
-        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v1
+          docker run --rm --entrypoint python \
+            "${IPERF_OPERATOR_IMAGE_NAME}:${IPERF_EXPORTER_IMAGE_TAG}" \
+            -c "import iperf_operator.controller"
+      - name: Scan exporter image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: loktionovam/iperf_exporter_server:${{ env.IPERF_EXPORTER_IMAGE_TAG }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Scan operator image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: loktionovam/iperf_operator:${{ env.IPERF_EXPORTER_IMAGE_TAG }}
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Log in to Docker Hub
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
-      - name: Push image
-        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
-        run: |
-          make push-images
+      - name: Push images
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: make push-images
 
-  build-charts:
-    runs-on: ubuntu-20.04
-    name: Build iperf-exporter helm chart
-    needs: [ build-images ]
-    env:
-      IPERF_EXPORTER_SERVER_IMAGE_NAME: loktionovam/iperf_exporter_server
-      IPERF_EXPORTER_CLIENT_IMAGE_NAME: loktionovam/iperf_exporter_client
-
+  kind-e2e:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    needs:
+      - apps
+      - manifests
+    timeout-minutes: 45
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
-      - name: Install Helm
-        uses: azure/setup-helm@v1
+      - uses: actions/setup-python@v6
         with:
-          version: v3.4.0
-
-      - name: Prepare helm release
+          python-version: "3.14"
+      - uses: azure/setup-helm@v5
+      - name: Install kind and test dependencies
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          make build-charts
+          go install sigs.k8s.io/kind@v0.29.0
+          sudo install "$(go env GOPATH)/bin/kind" /usr/local/bin/kind
+          python -m pip install -r requirements-dev.txt
+      - name: Run two-cluster kind test
+        run: make demo-kind-up
+      - name: Run Helm TCP and UDP service tests
+        run: |
+          for proto in udp tcp; do
+            helm upgrade --install "helm-${proto}" \
+              helm/charts/iperf-exporter-server \
+              --kube-context kind-iperf-demo \
+              --namespace "helm-${proto}" \
+              --create-namespace \
+              --set image.repository=iperf_exporter \
+              --set image.tag=kind-demo \
+              --set image.pullPolicy=Never \
+              --set "server.config.proto=${proto}" \
+              --set "client.config.proto=${proto}"
+            kubectl --context kind-iperf-demo \
+              --namespace "helm-${proto}" \
+              rollout status deployment \
+              --selector app.kubernetes.io/component=server \
+              --timeout=180s
+            helm test "helm-${proto}" \
+              --kube-context kind-iperf-demo \
+              --namespace "helm-${proto}" \
+              --logs \
+              --timeout=120s
+          done
+      - name: Tear down kind clusters
+        if: always()
+        run: make demo-kind-down
 
-      - name: Run chart-releaser
-        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
-        uses: loktionovam/chart-releaser-action@v1.2.1-1
+  release-chart:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    needs:
+      - images
+      - kind-e2e
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v5
+      - name: Package chart
+        run: make build-charts
+      - name: Publish chart
+        uses: helm/chart-releaser-action@v1.7.0
         with:
           charts_dir: helm/charts
+          skip_packaging: true
         env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

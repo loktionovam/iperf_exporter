@@ -3,8 +3,8 @@ import subprocess
 import os
 import testinfra
 
-IPERF_EXPORTER_SERVER_IMAGE_NAME = os.environ.get(
-    "IPERF_EXPORTER_SERVER_IMAGE_NAME", "loktionovam/iperf_exporter_server"
+IPERF_EXPORTER_IMAGE_NAME = os.environ.get(
+    "IPERF_EXPORTER_IMAGE_NAME", "loktionovam/iperf_exporter_server"
 )
 IPERF_EXPORTER_IMAGE_TAG = os.environ.get("IPERF_EXPORTER_IMAGE_TAG", "4229e23")
 
@@ -20,7 +20,7 @@ def host(request):
                 "docker",
                 "run",
                 "-d",
-                f"{IPERF_EXPORTER_SERVER_IMAGE_NAME}:{IPERF_EXPORTER_IMAGE_TAG}",
+                f"{IPERF_EXPORTER_IMAGE_NAME}:{IPERF_EXPORTER_IMAGE_TAG}",
             ]
         )
         .decode()

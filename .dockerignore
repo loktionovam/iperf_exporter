@@ -3,6 +3,6 @@
 !iperf_operator
 !requirements.txt
 !requirements-operator.txt
-!setup.py
+!pyproject.toml
 !README.md
 !Dockerfile.operator

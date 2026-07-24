@@ -1,3 +1,10 @@
+import os
+import platform
+import time
+from collections import Counter
+from functools import cache
+from importlib.metadata import PackageNotFoundError, version
+
 from prometheus_client.core import CounterMetricFamily, GaugeMetricFamily
 
 from iperf_exporter.iperf import (
@@ -75,7 +82,6 @@ PATH_TRACE_LABEL_NAMES = LABEL_NAMES + ["trace_direction"]
 PATH_TRACE_HOP_LABEL_NAMES = PATH_TRACE_LABEL_NAMES + [
     "hop_index",
     "hop_address",
-    "hop_summary",
 ]
 TCP_HISTOGRAM_LABEL_NAMES = LABEL_NAMES + [
     "histogram_name",
@@ -84,6 +90,24 @@ TCP_HISTOGRAM_LABEL_NAMES = LABEL_NAMES + [
 ]
 TCP_HISTOGRAM_INFO_LABEL_NAMES = LABEL_NAMES + ["histogram_name"]
 TCP_HISTOGRAM_BUCKET_LABEL_NAMES = LABEL_NAMES + ["histogram_name", "le"]
+RUNTIME_LABEL_NAMES = ["proto"] + CONTEXT_LABEL_NAMES
+TEST_RESULT_LABEL_NAMES = ["proto", "result"] + CONTEXT_LABEL_NAMES
+EVICTION_LABEL_NAMES = ["proto", "reason"] + CONTEXT_LABEL_NAMES
+COLLECTOR_LABEL_NAMES = ["collector"] + CONTEXT_LABEL_NAMES
+COLLECTOR_ERROR_LABEL_NAMES = ["collector", "reason"] + CONTEXT_LABEL_NAMES
+PATH_TRACE_HEALTH_LABEL_NAMES = ["proto"] + CONTEXT_LABEL_NAMES
+PATH_TRACE_FAILURE_LABEL_NAMES = ["proto", "reason"] + CONTEXT_LABEL_NAMES
+
+
+@cache
+def _exporter_version() -> str:
+    configured_version = os.environ.get("IPERF_EXPORTER_VERSION", "").strip()
+    if configured_version:
+        return configured_version
+    try:
+        return version("iperf_exporter")
+    except PackageNotFoundError:
+        return "dev"
 
 
 def _connection_pair_label(out: IPerfServerUDPOutput | IPerfServerTCPOutput) -> str:
@@ -95,7 +119,7 @@ def _format_float_label(value: float) -> str:
 
 
 def _normalize_context_labels(
-    context_labels: dict[str, str] | None = None
+    context_labels: dict[str, str] | None = None,
 ) -> dict[str, str]:
     normalized = {name: "" for name in CONTEXT_LABEL_NAMES}
     for key, value in (context_labels or {}).items():
@@ -406,6 +430,243 @@ class IPerfProcessMetrics:
             yield metric
 
 
+class IPerfRuntimeMetrics:
+    def __init__(
+        self,
+        server,
+        exporter_start_time_seconds: float,
+        context_labels: dict[str, str] | None = None,
+    ):
+        context_values = _context_label_values(context_labels)
+        runtime_labels = [server.proto] + context_values
+        self.data = [
+            GaugeMetricFamily(
+                "iperf_exporter_active_streams",
+                "Number of iperf streams currently retained by the exporter.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_connections_total",
+                "Total number of iperf client connections observed by the server.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_samples_total",
+                "Total number of valid iperf interval reports parsed by the exporter.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_parse_errors_total",
+                "Total number of iperf report lines that could not be parsed safely.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_samples_evicted_total",
+                "Total number of retained stream samples removed by the exporter.",
+                labels=EVICTION_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_test_runs_total",
+                "Observed iperf test outcomes. Success is recorded on the first valid report, timeout on TTL eviction without a valid report, and error on an iperf process restart.",
+                labels=TEST_RESULT_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_start_time_seconds",
+                "Unix timestamp when the exporter collector started.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_sample_timestamp_seconds",
+                "Unix timestamp of the most recently parsed valid iperf report.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_test_last_success_timestamp_seconds",
+                "Unix timestamp when an iperf connection first produced a valid report.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_last_connection_timestamp_seconds",
+                "Unix timestamp of the most recently observed iperf client connection.",
+                labels=RUNTIME_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_test_duration_seconds",
+                "Elapsed test duration reported by iperf for the latest sample of each retained stream.",
+                labels=LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_build_info",
+                "Build and runtime information for iperf_exporter.",
+                labels=["version", "python_version"],
+            ),
+        ]
+
+        self.data[0].add_metric(runtime_labels, float(len(server.output)))
+        self.data[1].add_metric(
+            runtime_labels,
+            float(getattr(server, "connections_total", 0)),
+        )
+        self.data[2].add_metric(
+            runtime_labels,
+            float(getattr(server, "samples_total", 0)),
+        )
+        self.data[3].add_metric(
+            runtime_labels,
+            float(getattr(server, "parse_errors_total", 0)),
+        )
+        self.data[4].add_metric(
+            [server.proto, "ttl"] + context_values,
+            float(getattr(server, "samples_evicted_total", {}).get("ttl", 0)),
+        )
+        for result in ("success", "error", "timeout"):
+            self.data[5].add_metric(
+                [server.proto, result] + context_values,
+                float(getattr(server, "test_runs_total", {}).get(result, 0)),
+            )
+        self.data[6].add_metric(runtime_labels, exporter_start_time_seconds)
+
+        timestamp_attributes = (
+            (7, "last_sample_timestamp_seconds"),
+            (8, "last_test_success_timestamp_seconds"),
+            (9, "last_connection_timestamp_seconds"),
+        )
+        for metric_index, attribute_name in timestamp_attributes:
+            timestamp = getattr(server, attribute_name, None)
+            if timestamp is not None:
+                self.data[metric_index].add_metric(runtime_labels, float(timestamp))
+
+        for output in server.output.values():
+            if output.test_duration_seconds is None:
+                continue
+            self.data[10].add_metric(
+                _label_values(output, context_labels),
+                float(output.test_duration_seconds),
+            )
+
+        self.data[11].add_metric(
+            [_exporter_version(), platform.python_version()],
+            1.0,
+        )
+
+    def __iter__(self):
+        for metric in self.data:
+            yield metric
+
+
+class IPerfCollectorHealthMetrics:
+    def __init__(
+        self,
+        health_snapshot: dict,
+        context_labels: dict[str, str] | None = None,
+    ):
+        context_values = _context_label_values(context_labels)
+        self.data = [
+            GaugeMetricFamily(
+                "iperf_exporter_collector_duration_seconds",
+                "Duration of the latest collector execution in seconds.",
+                labels=COLLECTOR_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_collector_errors_total",
+                "Total collector errors grouped by collector and bounded reason.",
+                labels=COLLECTOR_ERROR_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_collector_last_success_timestamp_seconds",
+                "Unix timestamp of the latest successful collector execution.",
+                labels=COLLECTOR_LABEL_NAMES,
+            ),
+        ]
+
+        for collector_name, duration in health_snapshot.get("durations", {}).items():
+            self.data[0].add_metric(
+                [collector_name] + context_values,
+                float(duration),
+            )
+        for (collector_name, reason), count in health_snapshot.get(
+            "errors", {}
+        ).items():
+            self.data[1].add_metric(
+                [collector_name, reason] + context_values,
+                float(count),
+            )
+        for collector_name, timestamp in health_snapshot.get(
+            "last_success_timestamps", {}
+        ).items():
+            if timestamp is None:
+                continue
+            self.data[2].add_metric(
+                [collector_name] + context_values,
+                float(timestamp),
+            )
+
+    def __iter__(self):
+        for metric in self.data:
+            yield metric
+
+
+class IPerfPathTraceHealthMetrics:
+    def __init__(
+        self,
+        health_snapshot: dict,
+        proto: str,
+        context_labels: dict[str, str] | None = None,
+    ):
+        context_values = _context_label_values(context_labels)
+        label_values = [proto] + context_values
+        self.data = [
+            GaugeMetricFamily(
+                "iperf_exporter_path_trace_duration_seconds",
+                "Duration of the latest completed tracepath execution.",
+                labels=PATH_TRACE_HEALTH_LABEL_NAMES,
+            ),
+            CounterMetricFamily(
+                "iperf_exporter_path_trace_failures_total",
+                "Total tracepath failures grouped by bounded reason.",
+                labels=PATH_TRACE_FAILURE_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_path_trace_last_success_timestamp_seconds",
+                "Unix timestamp of the latest tracepath execution that reached its destination.",
+                labels=PATH_TRACE_HEALTH_LABEL_NAMES,
+            ),
+            GaugeMetricFamily(
+                "iperf_exporter_path_trace_in_flight",
+                "Number of tracepath executions currently in flight.",
+                labels=PATH_TRACE_HEALTH_LABEL_NAMES,
+            ),
+        ]
+
+        self.data[0].add_metric(
+            label_values,
+            float(health_snapshot.get("last_duration_seconds", 0)),
+        )
+        for reason in (
+            "unavailable",
+            "timeout",
+            "command",
+            "parse",
+            "unreachable",
+            "worker",
+        ):
+            self.data[1].add_metric(
+                [proto, reason] + context_values,
+                float(health_snapshot.get("error_counts", {}).get(reason, 0)),
+            )
+        last_success = health_snapshot.get("last_success_timestamp_seconds")
+        if last_success is not None:
+            self.data[2].add_metric(label_values, float(last_success))
+        self.data[3].add_metric(
+            label_values,
+            float(health_snapshot.get("in_flight", 0)),
+        )
+
+    def __iter__(self):
+        for metric in self.data:
+            yield metric
+
+
 class IPerfTestInfoMetrics:
     def __init__(
         self,
@@ -606,7 +867,6 @@ class IPerfPathTraceMetrics:
                     + [
                         str(hop.hop_index),
                         hop.hop_address,
-                        hop.hop_summary,
                     ],
                     1.0,
                 )
@@ -630,6 +890,8 @@ class IPerfTCPSocketMetrics:
         "bytes_sent": "Total TCP bytes sent reported by ss for the socket.",
         "bytes_acked": "Total TCP bytes acknowledged reported by ss for the socket.",
         "bytes_received": "Total TCP bytes received reported by ss for the socket.",
+        "bytes_retransmitted_total": "Total TCP bytes retransmitted reported by ss for the socket.",
+        "retransmissions_total": "Total TCP retransmissions reported by ss for the socket.",
         "segs_out": "Total TCP segments sent reported by ss for the socket.",
         "segs_in": "Total TCP segments received reported by ss for the socket.",
         "data_segs_out": "Total TCP data segments sent reported by ss for the socket.",
@@ -660,10 +922,18 @@ class IPerfTCPSocketMetrics:
     ):
         self.context_labels = _normalize_context_labels(context_labels)
         self.data = {
-            metric_name: GaugeMetricFamily(
-                f"iperf_exporter_tcp_socket_{metric_name}",
-                description,
-                labels=LABEL_NAMES,
+            metric_name: (
+                CounterMetricFamily(
+                    f"iperf_exporter_tcp_socket_{metric_name}",
+                    description,
+                    labels=LABEL_NAMES,
+                )
+                if metric_name in {"bytes_retransmitted_total", "retransmissions_total"}
+                else GaugeMetricFamily(
+                    f"iperf_exporter_tcp_socket_{metric_name}",
+                    description,
+                    labels=LABEL_NAMES,
+                )
             )
             for metric_name, description in self.metric_descriptions.items()
         }
@@ -735,9 +1005,13 @@ class IPerfCollector:
         path_trace_cls=PathTraceCollector,
     ):
         self.proto = proto
+        self.start_time_seconds = time.time()
         self.context_labels = _normalize_context_labels(context_labels)
         self.context_client_bandwidth = context_client_bandwidth
         self.context_client_additional_params = context_client_additional_params
+        self._collector_durations = {}
+        self._collector_errors = Counter()
+        self._collector_last_success_timestamps = {}
         self.server = server_cls(
             port,
             proto,
@@ -761,10 +1035,54 @@ class IPerfCollector:
         else:
             raise ValueError(f"Unsupported iperf protocol: {self.proto}")
 
+    def _collect_component(self, name: str, operation):
+        started_at = time.monotonic()
+        try:
+            result = operation()
+        except Exception:
+            self._collector_durations[name] = time.monotonic() - started_at
+            self._collector_errors[(name, "exception")] += 1
+            raise
+        self._collector_durations[name] = time.monotonic() - started_at
+        self._collector_last_success_timestamps[name] = time.time()
+        return result
+
+    def _collector_health_snapshot(
+        self,
+        socket_health: dict,
+        path_trace_health: dict,
+    ) -> dict:
+        errors = dict(self._collector_errors)
+        for reason, count in socket_health.get("error_counts", {}).items():
+            errors[("socket", reason)] = count
+        for reason, count in path_trace_health.get("error_counts", {}).items():
+            errors[("path_trace", reason)] = count
+
+        last_success_timestamps = dict(self._collector_last_success_timestamps)
+        if socket_health.get("last_success_timestamp_seconds") is not None:
+            last_success_timestamps["socket"] = socket_health[
+                "last_success_timestamp_seconds"
+            ]
+        if path_trace_health.get("last_success_timestamp_seconds") is not None:
+            last_success_timestamps["path_trace"] = path_trace_health[
+                "last_success_timestamp_seconds"
+            ]
+
+        return {
+            "durations": dict(self._collector_durations),
+            "errors": errors,
+            "last_success_timestamps": last_success_timestamps,
+        }
+
     def collect(self):
-        if hasattr(self.server, "ensure_running"):
-            self.server.ensure_running()
-        self.server.read_output()
+        collection_started_at = time.monotonic()
+
+        def _read_iperf_output():
+            if hasattr(self.server, "ensure_running"):
+                self.server.ensure_running()
+            return self.server.read_output()
+
+        self._collect_component("iperf", _read_iperf_output)
         log.debug(self.server.output)
         for metric in IPerfProcessMetrics(
             self.server,
@@ -787,7 +1105,16 @@ class IPerfCollector:
             context_labels=self.context_labels,
         ):
             yield metric
-        path_trace_snapshots = self.path_trace.collect(self.server.output)
+        for metric in IPerfRuntimeMetrics(
+            self.server,
+            exporter_start_time_seconds=self.start_time_seconds,
+            context_labels=self.context_labels,
+        ):
+            yield metric
+        path_trace_snapshots = self._collect_component(
+            "path_trace",
+            lambda: self.path_trace.collect(self.server.output),
+        )
         for metric in IPerfPathTraceMetrics(
             self.server.output,
             path_trace_snapshots,
@@ -795,7 +1122,10 @@ class IPerfCollector:
             context_labels=self.context_labels,
         ):
             yield metric
-        socket_snapshots = self.socket_stats.collect()
+        socket_snapshots = self._collect_component(
+            "socket",
+            self.socket_stats.collect,
+        )
         for metric in IPerfSocketQueueMetrics(
             self.server.output,
             socket_snapshots,
@@ -816,5 +1146,34 @@ class IPerfCollector:
             ):
                 yield metric
 
+        path_trace_health = (
+            self.path_trace.health_snapshot()
+            if hasattr(self.path_trace, "health_snapshot")
+            else {}
+        )
+        socket_health = (
+            self.socket_stats.health_snapshot()
+            if hasattr(self.socket_stats, "health_snapshot")
+            else {}
+        )
+        for metric in IPerfPathTraceHealthMetrics(
+            path_trace_health,
+            self.proto,
+            context_labels=self.context_labels,
+        ):
+            yield metric
+
+        self._collector_durations["exporter"] = time.monotonic() - collection_started_at
+        self._collector_last_success_timestamps["exporter"] = time.time()
+        for metric in IPerfCollectorHealthMetrics(
+            self._collector_health_snapshot(
+                socket_health=socket_health,
+                path_trace_health=path_trace_health,
+            ),
+            context_labels=self.context_labels,
+        ):
+            yield metric
+
     def stop(self):
+        self.path_trace.close()
         self.server.stop()
