@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  iperf-exporter-server:
+  - apiVersion: v2
+    appVersion: v3.0.0
+    created: "2026-07-24T15:53:05.743304843Z"
+    description: IPerf prometheus metrics exporter with optional client workload
+    digest: f2fdfc4693dc21a1d17d09d3b8da33d74633d7f2c008902d4dcb0f0e37458ac9
+    name: iperf-exporter-server
+    type: application
+    urls:
+    - https://github.com/loktionovam/iperf_exporter/releases/download/iperf-exporter-server-3.0.0/iperf-exporter-server-3.0.0.tgz
+    version: 3.0.0
+generated: "2026-07-24T15:53:05.743309119Z"
