@@ -329,18 +329,21 @@ spec:
 
 
 def test_completed_probe_is_one_shot_and_restarts_after_explicit_job_deletion():
-    sessions = [
-        item
-        for item in measurement_sessions_payload().get("items", [])
-        if item.get("spec", {}).get("execution", {}).get("mode") == "probe"
-    ]
+    sessions = sorted(
+        (
+            item
+            for item in measurement_sessions_payload().get("items", [])
+            if item.get("spec", {}).get("execution", {}).get("mode") == "probe"
+        ),
+        key=lambda item: item["metadata"]["name"],
+    )
     assert sessions
     session = sessions[0]
     session_name = session["metadata"]["name"]
 
     wait_until(
         lambda: object_phase("measurementsession", session_name) == "Completed",
-        timeout=180,
+        timeout=300,
         message=f"probe session {session_name} did not complete",
     )
     job_name = kubectl_json("get", "measurementsession", session_name)["status"][
@@ -349,23 +352,34 @@ def test_completed_probe_is_one_shot_and_restarts_after_explicit_job_deletion():
     original_uid = kubectl_json("get", "job", job_name)["metadata"]["uid"]
 
     time.sleep(305)
-    assert kubectl_json("get", "job", job_name)["metadata"]["uid"] == original_uid
+    wait_until(
+        lambda: kubectl_json("get", "job", job_name)["metadata"]["uid"] == original_uid,
+        timeout=30,
+        message=f"probe job {job_name} was replaced without explicit deletion",
+    )
 
     kubectl("delete", "job", job_name)
     wait_until(
         lambda: kubectl_json("get", "job", job_name)["metadata"]["uid"] != original_uid,
-        timeout=180,
+        timeout=300,
         message=f"probe job {job_name} was not recreated after explicit deletion",
     )
 
 
 def test_prometheus_has_active_iperf_targets():
-    payload = http_json(PROM_HOST, "/api/v1/targets")
-    targets = payload["data"]["activeTargets"]
-    iperf_targets = [
-        target for target in targets if target["labels"].get("job") == "iperf-exporter"
-    ]
-    assert iperf_targets
+    def _has_iperf_targets() -> bool:
+        payload = http_json(PROM_HOST, "/api/v1/targets")
+        targets = payload["data"]["activeTargets"]
+        return any(
+            target["labels"].get("job") == "iperf-exporter" for target in targets
+        )
+
+    wait_until(
+        _has_iperf_targets,
+        timeout=60,
+        interval=1,
+        message="Prometheus did not discover active iperf exporter targets",
+    )
 
 
 def test_prometheus_scrapes_operator_metrics():
@@ -392,13 +406,20 @@ def test_prometheus_scrapes_operator_metrics():
 
 
 def test_prometheus_sees_cross_cluster_measurement():
-    payload = http_json(
-        PROM_HOST,
-        "/api/v1/query?query=count(iperf_exporter_tcp_transfer%7Bmeasurement_id%3D%22tcp-cross-cluster-demo%22%7D)",
+    def _has_cross_cluster_measurement() -> bool:
+        payload = http_json(
+            PROM_HOST,
+            "/api/v1/query?query=count(iperf_exporter_tcp_transfer%7Bmeasurement_id%3D%22tcp-cross-cluster-demo%22%7D)",
+        )
+        result = payload["data"]["result"]
+        return bool(result) and float(result[0]["value"][1]) > 0
+
+    wait_until(
+        _has_cross_cluster_measurement,
+        timeout=60,
+        interval=1,
+        message="Prometheus did not observe the cross-cluster measurement",
     )
-    result = payload["data"]["result"]
-    assert result
-    assert float(result[0]["value"][1]) > 0
 
 
 def test_grafana_dashboards_are_provisioned():

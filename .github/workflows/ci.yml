@@ -178,6 +178,20 @@ jobs:
               --logs \
               --timeout=120s
           done
+      - name: Report kind failure diagnostics
+        if: failure()
+        run: |
+          sessions="$(kubectl --context kind-iperf-demo \
+            --namespace iperf-exporter-demo \
+            get measurementsessions \
+            -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,JOB:.status.clientJobName \
+            2>&1 | tr '\n' ';')"
+          jobs="$(kubectl --context kind-iperf-demo \
+            --namespace iperf-exporter-demo \
+            get jobs \
+            -o custom-columns=NAME:.metadata.name,UID:.metadata.uid,ACTIVE:.status.active,SUCCEEDED:.status.succeeded,FAILED:.status.failed \
+            2>&1 | tr '\n' ';')"
+          echo "::error title=kind-e2e diagnostics::sessions=${sessions} jobs=${jobs}"
       - name: Tear down kind clusters
         if: always()
         run: make demo-kind-down
