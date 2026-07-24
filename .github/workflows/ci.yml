@@ -202,7 +202,7 @@ jobs:
       - name: Package chart
         run: make build-charts
       - name: Publish chart
-        uses: helm/chart-releaser-action@v1.7.0
+        uses: helm/chart-releaser-action@3e001cb8c68933439c7e721650f20a07a1a5c61e
         with:
           charts_dir: helm/charts
           skip_packaging: true
