@@ -51,7 +51,7 @@ build-charts:
 	mkdir -p .cr-release-packages
 	helm package helm/charts/iperf-exporter-server \
 		--version $(RELEASE_VERSION) \
-		--app-version $(RELEASE_VERSION) \
+		--app-version $(IPERF_EXPORTER_IMAGE_TAG) \
 		--destination .cr-release-packages
 
 validate-manifests:

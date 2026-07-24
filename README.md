@@ -44,7 +44,7 @@ pip install -r requirements-dev.txt
 
 ```shell
 export IPERF_EXPORTER_SERVER_IMAGE_NAME=yourname/iperf_exporter_server
-export IPERF_EXPORTER_IMAGE_TAG=0.1.0
+export IPERF_EXPORTER_IMAGE_TAG=v3.0.0
 
 make build-images
 make test-images
@@ -70,8 +70,7 @@ Deploy a release:
 
 ```shell
 helm upgrade --install iperf-exporter-server \
-  iperf-exporter/iperf-exporter-server \
-  --set image.tag=0.1.0-1-g7a5bfb6
+  iperf-exporter/iperf-exporter-server
 ```
 
 Optionally enable an in-cluster client workload and place server/client on different nodes:
@@ -79,7 +78,6 @@ Optionally enable an in-cluster client workload and place server/client on diffe
 ```shell
 helm upgrade --install iperf-exporter-server \
   iperf-exporter/iperf-exporter-server \
-  --set image.tag=0.1.0-1-g7a5bfb6 \
   --set server.nodeSelector.node-role\\.kubernetes\\.io/infra=true \
   --set client.enabled=true \
   --set client.controller=DaemonSet \
@@ -101,7 +99,7 @@ curl http://localhost:9868/metrics
 Run with environment variables:
 
 ```shell
-docker run -p 9868:9868 -d yourname/iperf_exporter_server:0.1.0
+docker run -p 9868:9868 -d loktionovam/iperf_exporter_server:v3.0.0
 
 # Get the metrics
 curl http://localhost:9868/metrics

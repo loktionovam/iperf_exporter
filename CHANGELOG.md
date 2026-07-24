@@ -1,45 +1,47 @@
 # Changelog
 
 
-## (unreleased)
+## v3.0.0 (2026-07-24)
 
-### Other
+### Breaking changes
 
-* Add Kubernetes operator and kind demo. [Aleksandr Loktionov]
+* Remove the unused `allowOverlap`, `env`, `serverEnv`, `clientEnv`, and
+  user-supplied `nodeAddress` fields from the experimental `v1alpha1` API.
+  Reapply the CRDs, `MeasurementProfile`, and `LinkMeasurement` resources after
+  upgrading; generated `MeasurementSession` resources are recreated.
+* Remove the dynamic `hop_summary` label from path-trace metrics.
+* Use a consistent 3600-second metric TTL across CLI, containers, Helm, and the
+  operator.
 
-  This commit introduces a complete Kubernetes operator implementation for iperf_exporter,
-  enabling declarative network performance measurement management via CRDs.
+### Operator
 
-  Major additions:
-  - MeasurementProfile, LinkMeasurement, and MeasurementSession CRDs with full validation
-  - kopf-based operator controller with reconciliation logic for all CRD types
-  - Support for three execution modes: continuous, probe, and periodicProbe
-  - Three network modes: host, pod, and service with proper service topology
-  - Bidirectional session expansion from single LinkMeasurement resources
-  - Context labels propagated to Prometheus metrics for operator-managed measurements
+* Add declarative profile, measurement, session, and remote-cluster
+  reconciliation for continuous, probe, and periodic-probe execution.
+* Keep completed and failed probe Jobs as one-shot results. A probe runs again
+  only after its Job is explicitly deleted or the desired generation changes.
+* Preserve existing workloads when a StatefulSet patch is rejected and retain
+  finalizers while remote-cluster cleanup is unavailable.
+* Add strict CRD validation, safe Kubernetes label normalization, namespace
+  RBAC, restricted pod security settings, and operator runtime metrics.
+* Add a two-cluster kind demo with live exporter/operator integration tests.
 
-  kind cluster demo:
-  - 3-node kind cluster with ingress-nginx controller
-  - In-cluster Prometheus and Grafana with pre-provisioned dashboards
-  - Six reusable measurement profiles (TCP/UDP quality, throughput, loss)
-  - Six example measurements demonstrating all execution and network modes
-  - Integration tests validating cluster setup and metric availability
+### Exporter and observability
 
-  Exporter enhancements:
-  - Client execution mode support (continuous, probe, periodicProbe)
-  - Configurable client duration and interval parameters
-  - Context label environment variables for operator integration
-  - Period-based probe loop for periodic measurements
+* Replace ConfigArgParse with validated `argparse` CLI and environment handling.
+* Add graceful process shutdown, bounded `ss` collection, exporter lifecycle
+  metrics, test outcomes, collector errors, and TCP retransmission counters.
+* Move path tracing to a deduplicated background worker so Prometheus scrapes do
+  not wait for `tracepath`.
+* Add exporter and operator health panels, test outcomes, freshness,
+  retransmission panels, and updated screenshots to the Grafana dashboards.
 
-  Grafana dashboards updated:
-  - Dynamic variable filtering by measurement_id, profile_ref, execution_mode, direction
-  - Node and cluster filtering for multi-cluster monitoring readiness
-  - Network mode indicators for topology-aware analysis
+### Delivery
 
-  Testing:
-  - Unit tests for operator spec expansion and manifest generation
-  - Integration tests for kind demo cluster health and CRD reconciliation
-  - Updated existing tests to accommodate new CLI and collector parameters
+* Publish TCP and UDP iperf ports from the Helm Service and verify both protocols
+  with a real Helm test.
+* Build and scan exporter and operator images, validate manifests and dashboards,
+  and run Python 3.10/3.14 plus two-cluster kind tests in CI.
+* Package the Helm chart with Helm and publish it through chart-releaser.
 
 
 ## v2.0.0 (2026-03-26)
@@ -78,5 +80,4 @@
 * Update helm chart. [Aleksandr Loktionov]
 
 * Initial commit. [Aleksandr Loktionov]
-
 
