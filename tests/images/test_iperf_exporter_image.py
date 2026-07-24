@@ -7,11 +7,11 @@ from unittest import TestCase
 import pytest
 
 IPERF_EXPORTER_IMAGE_NAME = os.environ.get(
-    "IPERF_EXPORTER_IMAGE_NAME", "loktionovam/iperf_exporter_server"
+    "IPERF_EXPORTER_IMAGE_NAME", "ghcr.io/loktionovam/iperf_exporter_server"
 )
 IPERF_EXPORTER_IMAGE_TAG = os.environ.get("IPERF_EXPORTER_IMAGE_TAG", "4229e23")
 IPERF_OPERATOR_IMAGE_NAME = os.environ.get(
-    "IPERF_OPERATOR_IMAGE_NAME", "loktionovam/iperf_operator"
+    "IPERF_OPERATOR_IMAGE_NAME", "ghcr.io/loktionovam/iperf_operator"
 )
 
 

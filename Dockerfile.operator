@@ -18,7 +18,7 @@ USER iperf_operator
 LABEL maintainer=loktionovam@gmail.com
 LABEL version=${VERSION}
 
-ENV IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE=loktionovam/iperf_exporter_server:${VERSION} \
+ENV IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE=ghcr.io/loktionovam/iperf_exporter_server:${VERSION} \
     IPERF_OPERATOR_VERSION=${VERSION} \
     PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \

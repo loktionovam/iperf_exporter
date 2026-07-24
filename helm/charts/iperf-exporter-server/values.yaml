@@ -3,7 +3,7 @@
 # -- Container image settings shared by server and optional client workloads.
 image:
   # -- Image repository for the exporter containers.
-  repository: loktionovam/iperf_exporter_server
+  repository: ghcr.io/loktionovam/iperf_exporter_server
   # -- Kubernetes image pull policy.
   pullPolicy: IfNotPresent
   # -- Image tag to deploy.

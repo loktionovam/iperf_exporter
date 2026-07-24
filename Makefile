@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
-IPERF_EXPORTER_IMAGE_NAME ?= loktionovam/iperf_exporter_server
-IPERF_OPERATOR_IMAGE_NAME ?= loktionovam/iperf_operator
+IPERF_EXPORTER_IMAGE_NAME ?= ghcr.io/loktionovam/iperf_exporter_server
+IPERF_OPERATOR_IMAGE_NAME ?= ghcr.io/loktionovam/iperf_operator
 IPERF_EXPORTER_IMAGE_TAG ?= $(shell ./get_version.sh)
 RELEASE_VERSION ?= $(patsubst v%,%,$(IPERF_EXPORTER_IMAGE_TAG))
 GIT_BRANCH_NAME := $(shell git branch  --show-current)

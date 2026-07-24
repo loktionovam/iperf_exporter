@@ -99,7 +99,7 @@ curl http://localhost:9868/metrics
 Run with environment variables:
 
 ```shell
-docker run -p 9868:9868 -d loktionovam/iperf_exporter_server:v3.0.0
+docker run -p 9868:9868 -d ghcr.io/loktionovam/iperf_exporter_server:v3.0.0
 
 # Get the metrics
 curl http://localhost:9868/metrics

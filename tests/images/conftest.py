@@ -4,7 +4,7 @@ import os
 import testinfra
 
 IPERF_EXPORTER_IMAGE_NAME = os.environ.get(
-    "IPERF_EXPORTER_IMAGE_NAME", "loktionovam/iperf_exporter_server"
+    "IPERF_EXPORTER_IMAGE_NAME", "ghcr.io/loktionovam/iperf_exporter_server"
 )
 IPERF_EXPORTER_IMAGE_TAG = os.environ.get("IPERF_EXPORTER_IMAGE_TAG", "4229e23")
 

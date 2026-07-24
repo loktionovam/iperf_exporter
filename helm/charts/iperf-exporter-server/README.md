@@ -61,9 +61,9 @@ client:
 | client.resources.requests.memory | string | `"64Mi"` | Memory request for the client container. |
 | client.tolerations | list | `[]` | Tolerations for the client workload. |
 | fullnameOverride | string | `""` | Override the full generated release name. |
-| image | object | `{"pullPolicy":"IfNotPresent","repository":"loktionovam/iperf_exporter_server","tag":""}` | Container image settings shared by server and optional client workloads. |
+| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/loktionovam/iperf_exporter_server","tag":""}` | Container image settings shared by server and optional client workloads. |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes image pull policy. |
-| image.repository | string | `"loktionovam/iperf_exporter_server"` | Image repository for the exporter containers. |
+| image.repository | string | `"ghcr.io/loktionovam/iperf_exporter_server"` | Image repository for the exporter containers. |
 | image.tag | string | `""` | Image tag to deploy. |
 | imagePullSecrets | list | `[]` | Image pull secrets for private registries. |
 | nameOverride | string | `""` | Override the chart name used in resource names. |
