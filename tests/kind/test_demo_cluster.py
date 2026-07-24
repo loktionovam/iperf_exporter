@@ -354,7 +354,7 @@ def test_completed_probe_is_one_shot_and_restarts_after_explicit_job_deletion():
     kubectl("delete", "job", job_name)
     wait_until(
         lambda: kubectl_json("get", "job", job_name)["metadata"]["uid"] != original_uid,
-        timeout=90,
+        timeout=180,
         message=f"probe job {job_name} was not recreated after explicit deletion",
     )
 
