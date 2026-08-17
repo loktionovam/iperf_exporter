@@ -1,4 +1,4 @@
-FROM python:3.14-alpine
+FROM python:3.14-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
 
 # hadolint ignore=DL3018
 RUN apk add --no-cache iperf iproute2 iputils \
@@ -10,7 +10,8 @@ COPY pyproject.toml README.md requirements.txt ./
 COPY iperf_exporter ./iperf_exporter
 
 # hadolint ignore=DL3013
-RUN python -m pip install --no-cache-dir .
+RUN python -m pip install --no-cache-dir . \
+    && python -m pip uninstall --yes pip setuptools
 
 ARG VERSION=dev
 
