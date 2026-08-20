@@ -1,4 +1,4 @@
 kopf~=1.44.6
 kubernetes~=36.0.3
-prometheus-client~=0.25.0
+prometheus-client~=0.26.0
 PyYAML~=6.0.3
