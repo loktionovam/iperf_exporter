@@ -2,5 +2,5 @@
 -r requirements-operator.txt
 -r requirements-test.txt
 black~=26.5.1
-ruff~=0.16.3
+ruff~=0.16.4
 gitchangelog~=3.0.4
