@@ -58,10 +58,10 @@ The in-cluster monitoring stack is also installed automatically:
 - Prometheus scrapes all generated server-side exporter services via Kubernetes SD
 - Grafana provisions the existing repository dashboards from [grafana/dashboards](../../grafana/dashboards)
 
-Endpoints:
+Endpoints (self-signed TLS certificate):
 
-- Grafana: `http://grafana.127.0.0.1.nip.io:8080`
-- Prometheus: `http://prometheus.127.0.0.1.nip.io:8080`
+- Grafana: `https://grafana.127.0.0.1.nip.io:8443`
+- Prometheus: `https://prometheus.127.0.0.1.nip.io:8443`
 `make demo-kind-up` installs `ingress-nginx` and exposes both UIs through the kind control-plane host port mappings.
 
 Start:

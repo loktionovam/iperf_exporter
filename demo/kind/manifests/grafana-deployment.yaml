@@ -17,6 +17,7 @@ spec:
       containers:
         - name: grafana
           image: grafana/grafana:latest
+          imagePullPolicy: IfNotPresent
           env:
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "true"
