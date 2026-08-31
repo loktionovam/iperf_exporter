@@ -1,7 +1,9 @@
 FROM python:3.14-alpine@sha256:05b2b8b732ecd268fee8727a369f936f022d1321b59befd13c30ede22769dcdc
 
+# Apply security fixes even when the pinned Python image has not been rebuilt.
 # hadolint ignore=DL3018
-RUN apk add --no-cache iperf iproute2 iputils \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache iperf iproute2 iputils \
     && adduser -H -S -D -u 1000 iperf_exporter
 
 WORKDIR /app
