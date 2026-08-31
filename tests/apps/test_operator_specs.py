@@ -21,7 +21,7 @@ from iperf_operator.manifests import (
 
 def _profile(protocol="tcp"):
     return {
-        "apiVersion": "netperf.iperfexporter.io/v1alpha1",
+        "apiVersion": "netperf.iperfexporter.io/v1",
         "kind": "MeasurementProfile",
         "metadata": {"name": f"{protocol}-quality"},
         "spec": {
@@ -46,7 +46,7 @@ def _profile(protocol="tcp"):
 
 def _measurement(network_modes=None, execution=None):
     return {
-        "apiVersion": "netperf.iperfexporter.io/v1alpha1",
+        "apiVersion": "netperf.iperfexporter.io/v1",
         "kind": "LinkMeasurement",
         "metadata": {"name": "worker-a-worker-b", "namespace": "demo"},
         "spec": {

@@ -1,0 +1,37 @@
+# -- Operator image. An empty tag uses appVersion.
+image:
+  repository: ghcr.io/loktionovam/iperf_operator
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# -- Default image for generated workloads; LinkMeasurement spec.runtime.image can override it.
+exporter:
+  image:
+    repository: ghcr.io/loktionovam/iperf_exporter_server
+    tag: ""
+
+# -- Credentials used to pull the operator image.
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Logical cluster name used by LinkMeasurement endpoints.
+localClusterName: local
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- Requires an existing Prometheus Operator installation. Monitors this namespace only.
+serviceMonitor:
+  enabled: false
+  interval: 15s
+  additionalLabels: {}

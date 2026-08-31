@@ -7,6 +7,7 @@ import kopf
 import pytest
 import yaml
 from kubernetes.client.rest import ApiException
+from kopf.testing import KopfRunner
 
 from iperf_operator import controller
 from iperf_operator.specs import SESSION_LABEL_KEYS, build_session_labels
@@ -43,7 +44,7 @@ def _session(mode="continuous", network_mode="service", generation=1):
         destination=destination,
     )
     return {
-        "apiVersion": "netperf.iperfexporter.io/v1alpha1",
+        "apiVersion": "netperf.iperfexporter.io/v1",
         "kind": "MeasurementSession",
         "metadata": {
             "name": f"worker-a-worker-b-{network_mode}-source",
@@ -198,6 +199,52 @@ def test_delete_helper_propagates_non_404():
         controller._delete_job_if_exists(cluster, "forbidden")
 
 
+@pytest.mark.parametrize("image", ["", " ", "\t"])
+def test_configure_runtime_requires_exporter_image(image):
+    with (
+        mock.patch.object(controller, "DEFAULT_EXPORTER_IMAGE", image),
+        pytest.raises(
+            kopf.PermanentError, match="IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE"
+        ),
+    ):
+        controller.configure_runtime()
+
+
+def test_missing_exporter_image_terminates_kopf_startup_without_retry():
+    registry = kopf.OperatorRegistry()
+    retries = []
+
+    @kopf.on.startup(registry=registry)
+    def configure_runtime(retry, **_):
+        retries.append(retry)
+        controller.configure_runtime()
+
+    with (
+        mock.patch.object(controller, "DEFAULT_EXPORTER_IMAGE", ""),
+        KopfRunner(
+            ["run", "--standalone", "--namespace", "startup-test"],
+            registry=registry,
+            reraise=False,
+            timeout=5,
+        ) as runner,
+    ):
+        # Kopf gives background tasks five seconds to shut down after startup fails.
+        runner.future.result(timeout=10)
+
+    assert runner.exit_code != 0
+    assert isinstance(runner.exception.__cause__, kopf.PermanentError)
+    assert retries == [0]
+
+
+def test_configure_runtime_accepts_explicit_exporter_image():
+    with mock.patch.object(
+        controller,
+        "DEFAULT_EXPORTER_IMAGE",
+        "ghcr.io/loktionovam/iperf_exporter_server:v4.0.0",
+    ):
+        controller.configure_runtime()
+
+
 def test_configure_kubernetes_falls_back_to_kubeconfig():
     settings = mock.Mock()
     with (
@@ -235,7 +282,7 @@ def test_configure_metrics_rejects_invalid_port(value):
             {"IPERF_OPERATOR_METRICS_PORT": value},
         ),
         mock.patch.object(controller, "start_operator_metrics_server") as start,
-        pytest.raises(ValueError, match="IPERF_OPERATOR_METRICS_PORT"),
+        pytest.raises(kopf.PermanentError, match="IPERF_OPERATOR_METRICS_PORT"),
     ):
         controller.configure_metrics()
 
@@ -336,18 +383,14 @@ def test_remote_cluster_context_loads_secret_and_target_namespace():
     new_client.assert_called_once_with(kubeconfig)
 
 
-@pytest.mark.parametrize("required", [True, False])
-def test_remote_cluster_outage_is_only_suppressed_for_optional_lookup(required):
+def test_remote_cluster_outage_is_propagated():
     with mock.patch.object(
         controller,
         "_load_remote_cluster",
         side_effect=RuntimeError("remote unavailable"),
     ):
-        if required:
-            with pytest.raises(RuntimeError, match="remote unavailable"):
-                controller._cluster_context("demo", "remote", required=True)
-        else:
-            assert controller._cluster_context("demo", "remote", required=False) is None
+        with pytest.raises(RuntimeError, match="remote unavailable"):
+            controller._cluster_context("demo", "remote")
 
 
 def test_cleanup_remote_outage_propagates_to_keep_finalizer():
@@ -362,8 +405,10 @@ def test_cleanup_remote_outage_propagates_to_keep_finalizer():
             controller.delete_measurement_session(body, "demo")
 
 
-def test_cleanup_deletes_current_workloads_when_clusters_are_reachable():
+@pytest.mark.parametrize("name", ["short-session", "long-session-" + "x" * 70])
+def test_cleanup_deletes_current_workloads_when_clusters_are_reachable(name):
     body = _session()
+    body["metadata"]["name"] = name
     cluster = _cluster()
     with (
         mock.patch.object(controller, "_server_cluster", return_value=cluster),
@@ -562,7 +607,6 @@ def test_continuous_reconcile_applies_deployment_and_removes_probe_job():
     with (
         mock.patch.object(controller, "_server_cluster", return_value=cluster),
         mock.patch.object(controller, "_client_cluster", return_value=cluster),
-        mock.patch.object(controller, "_delete_legacy_session_workloads"),
         mock.patch.object(controller, "_apply_service") as apply_service,
         mock.patch.object(controller, "_apply_statefulset") as apply_statefulset,
         mock.patch.object(controller, "_apply_deployment") as apply_deployment,
@@ -593,7 +637,6 @@ def test_existing_probe_job_is_never_recreated_or_deleted(failed):
     with (
         mock.patch.object(controller, "_server_cluster", return_value=cluster),
         mock.patch.object(controller, "_client_cluster", return_value=cluster),
-        mock.patch.object(controller, "_delete_legacy_session_workloads"),
         mock.patch.object(controller, "_apply_service"),
         mock.patch.object(controller, "_apply_statefulset"),
         mock.patch.object(controller, "_list_session_jobs", return_value=[current_job]),
@@ -620,7 +663,6 @@ def test_deleted_probe_job_is_recreated_when_server_is_ready():
     with (
         mock.patch.object(controller, "_server_cluster", return_value=cluster),
         mock.patch.object(controller, "_client_cluster", return_value=cluster),
-        mock.patch.object(controller, "_delete_legacy_session_workloads"),
         mock.patch.object(controller, "_apply_service"),
         mock.patch.object(controller, "_apply_statefulset"),
         mock.patch.object(controller, "_list_session_jobs", return_value=[]),

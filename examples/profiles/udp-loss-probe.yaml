@@ -1,7 +1,7 @@
 # Short higher-rate UDP burst.
 # Run this when you want to push the path hard enough to expose loss, jitter
 # spikes, or latency spread under stress.
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: MeasurementProfile
 metadata:
   name: udp-loss-probe

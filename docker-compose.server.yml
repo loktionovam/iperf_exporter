@@ -1,6 +1,6 @@
 services:
   iperf-exporter-server:
-    image: ghcr.io/loktionovam/iperf_exporter_server:v3.0.0
+    image: ghcr.io/loktionovam/iperf_exporter_server:v4.0.0
     container_name: iperf-exporter-server
     network_mode: host
     environment:

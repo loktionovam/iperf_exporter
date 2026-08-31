@@ -1,0 +1,20 @@
+# iperf-operator
+
+Install the operator and four `netperf.iperfexporter.io/v1` CRDs:
+
+```sh
+helm install iperf-operator ./helm/charts/iperf-operator \
+  --namespace iperf-measurements --create-namespace \
+  --set localClusterName=cluster-a
+```
+
+The operator watches the release namespace with one replica. A MeasurementProfile
+and LinkMeasurement start traffic; installing the chart alone does not.
+
+Images default to the chart's appVersion. Configure image overrides, resources,
+placement and optional ServiceMonitors in [values.yaml](values.yaml).
+Prometheus and Grafana are not included.
+
+See [installation](../../../docs/installation.md) for the first measurement and monitoring.
+
+{{ template "chart.valuesSection" . }}

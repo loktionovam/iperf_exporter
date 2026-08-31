@@ -1,0 +1,10 @@
+apiVersion: netperf.iperfexporter.io/v1
+kind: RemoteCluster
+metadata:
+  name: cluster-b
+  namespace: iperf-measurements
+spec:
+  namespace: iperf-measurements
+  kubeconfigSecretRef:
+    name: cluster-b-kubeconfig
+    key: kubeconfig

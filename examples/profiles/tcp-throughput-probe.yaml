@@ -1,7 +1,7 @@
 # Short higher-rate TCP burst.
 # Run this when you want to answer "what throughput can this path sustain right
 # now?" or compare host/pod/service datapaths under burst load.
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: MeasurementProfile
 metadata:
   name: tcp-throughput-probe

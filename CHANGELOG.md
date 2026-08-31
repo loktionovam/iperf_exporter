@@ -1,6 +1,21 @@
 # Changelog
 
 
+## v4.0.0 (unreleased)
+
+* Promote all four operator resources to `netperf.iperfexporter.io/v1`.
+  The alpha API and legacy workload names are no longer supported; the operator
+  chart requires a clean installation when alpha CRDs are present.
+* Add the `iperf-operator` Helm chart with namespace-scoped operation, configurable
+  operator/exporter images, metrics services, and optional ServiceMonitors.
+* Require an explicit default exporter image when starting the operator; remove
+  the old environment variable alias and implicit demo image fallback.
+* Run two-cluster kind tests for pull requests and gate image, chart, and release
+  publication on all checks. Publish the tested images without rebuilding them.
+* Reorganize the README around installation and first measurements, with focused
+  installation, metric, and dashboard references and fresh demo screenshots.
+
+
 ## v3.0.0 (2026-07-24)
 
 ### Breaking changes

@@ -31,11 +31,6 @@ from iperf_operator.specs import (
     SESSION_LABEL_KEYS,
     expand_measurement_sessions,
     kubernetes_label_value,
-    legacy_session_client_deployment_name,
-    legacy_session_client_job_name,
-    legacy_session_headless_service_name,
-    legacy_session_server_statefulset_name,
-    legacy_session_service_name,
     session_client_deployment_name,
     session_client_job_name,
     session_client_peer,
@@ -46,10 +41,7 @@ from iperf_operator.specs import (
 )
 
 PROFILE_TRIGGER_ANNOTATION = "netperf.iperfexporter.io/profile-resource-version"
-DEFAULT_EXPORTER_IMAGE = os.environ.get(
-    "IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE",
-    os.environ.get("IPERF_OPERATOR_DEFAULT_IMAGE", "iperf_exporter:kind-demo"),
-)
+DEFAULT_EXPORTER_IMAGE = os.environ.get("IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE", "")
 LOCAL_CLUSTER_NAME = os.environ.get("IPERF_OPERATOR_LOCAL_CLUSTER_NAME", "local")
 DEFAULT_METRICS_PORT = 9869
 
@@ -73,6 +65,14 @@ def _core_api() -> client.CoreV1Api:
 
 
 @kopf.on.startup()
+def configure_runtime(**_) -> None:
+    if not DEFAULT_EXPORTER_IMAGE.strip():
+        raise kopf.PermanentError(
+            "IPERF_OPERATOR_DEFAULT_EXPORTER_IMAGE must specify the exporter image"
+        )
+
+
+@kopf.on.startup()
 def configure_kubernetes(settings=None, **_):
     if settings is not None:
         settings.scanning.disabled = True
@@ -91,11 +91,13 @@ def configure_metrics(**_):
     try:
         port = int(raw_port)
     except ValueError as exc:
-        raise ValueError(
+        raise kopf.PermanentError(
             f"IPERF_OPERATOR_METRICS_PORT must be an integer, got {raw_port!r}"
         ) from exc
     if not 1 <= port <= 65535:
-        raise ValueError("IPERF_OPERATOR_METRICS_PORT must be between 1 and 65535")
+        raise kopf.PermanentError(
+            "IPERF_OPERATOR_METRICS_PORT must be between 1 and 65535"
+        )
     start_operator_metrics_server(port)
 
 
@@ -144,12 +146,7 @@ def _load_remote_cluster(namespace: str, name: str) -> dict:
         raise
 
 
-def _cluster_context(
-    namespace: str,
-    cluster_name: str,
-    *,
-    required: bool = True,
-) -> ClusterContext | None:
+def _cluster_context(namespace: str, cluster_name: str) -> ClusterContext:
     if cluster_name in _local_cluster_aliases():
         return _cluster_context_from_api_client(
             name=LOCAL_CLUSTER_NAME,
@@ -158,38 +155,24 @@ def _cluster_context(
             is_local=True,
         )
 
-    try:
-        remote_cluster = _load_remote_cluster(namespace, cluster_name)
-    except Exception:
-        if required:
-            raise
-        return None
+    remote_cluster = _load_remote_cluster(namespace, cluster_name)
 
     secret_ref = remote_cluster.get("spec", {}).get("kubeconfigSecretRef", {})
     secret_name = secret_ref.get("name", "")
     secret_key = secret_ref.get("key", "kubeconfig")
     if not secret_name:
-        if required:
-            raise kopf.PermanentError(
-                f"RemoteCluster {cluster_name!r} is missing spec.kubeconfigSecretRef.name"
-            )
-        return None
-
-    try:
-        secret = _core_api().read_namespaced_secret(
-            name=secret_name, namespace=namespace
+        raise kopf.PermanentError(
+            f"RemoteCluster {cluster_name!r} is missing spec.kubeconfigSecretRef.name"
         )
-        encoded = (secret.data or {}).get(secret_key, "")
-        if not encoded:
-            raise kopf.PermanentError(
-                f"Secret {secret_name!r} does not contain key {secret_key!r}"
-            )
-        kubeconfig_dict = yaml.safe_load(base64.b64decode(encoded).decode("utf-8"))
-        api_client = config.new_client_from_config_dict(kubeconfig_dict)
-    except Exception:
-        if required:
-            raise
-        return None
+
+    secret = _core_api().read_namespaced_secret(name=secret_name, namespace=namespace)
+    encoded = (secret.data or {}).get(secret_key, "")
+    if not encoded:
+        raise kopf.PermanentError(
+            f"Secret {secret_name!r} does not contain key {secret_key!r}"
+        )
+    kubeconfig_dict = yaml.safe_load(base64.b64decode(encoded).decode("utf-8"))
+    api_client = config.new_client_from_config_dict(kubeconfig_dict)
 
     return _cluster_context_from_api_client(
         name=cluster_name,
@@ -557,20 +540,12 @@ def _patch_link_measurement_annotation(namespace: str, name: str, value: str) ->
     )
 
 
-def _server_cluster(
-    body: dict, namespace: str, *, required: bool = True
-) -> ClusterContext | None:
-    return _cluster_context(
-        namespace, body["spec"]["destination"]["cluster"], required=required
-    )
+def _server_cluster(body: dict, namespace: str) -> ClusterContext:
+    return _cluster_context(namespace, body["spec"]["destination"]["cluster"])
 
 
-def _client_cluster(
-    body: dict, namespace: str, *, required: bool = True
-) -> ClusterContext | None:
-    return _cluster_context(
-        namespace, body["spec"]["source"]["cluster"], required=required
-    )
+def _client_cluster(body: dict, namespace: str) -> ClusterContext:
+    return _cluster_context(namespace, body["spec"]["source"]["cluster"])
 
 
 def _delete_session_workloads(body: dict, namespace: str) -> None:
@@ -578,41 +553,22 @@ def _delete_session_workloads(body: dict, namespace: str) -> None:
     client_cluster_name = body["spec"]["source"]["cluster"]
 
     try:
-        server_cluster = _server_cluster(body, namespace, required=True)
-        if server_cluster is None:
-            raise RuntimeError("required server cluster context is unavailable")
+        server_cluster = _server_cluster(body, namespace)
         _delete_statefulset_if_exists(
             server_cluster, session_server_statefulset_name(body)
         )
         _delete_service_if_exists(server_cluster, session_headless_service_name(body))
         _delete_service_if_exists(server_cluster, session_service_name(body))
-        legacy_server = legacy_session_server_statefulset_name(body)
-        legacy_headless = legacy_session_headless_service_name(body)
-        legacy_service = legacy_session_service_name(body)
-        if legacy_server != session_server_statefulset_name(body):
-            _delete_statefulset_if_exists(server_cluster, legacy_server)
-        if legacy_headless != session_headless_service_name(body):
-            _delete_service_if_exists(server_cluster, legacy_headless)
-        if legacy_service != session_service_name(body):
-            _delete_service_if_exists(server_cluster, legacy_service)
     except Exception:
         _record_remote_cleanup_failure(server_cluster_name)
         raise
 
     try:
-        client_cluster = _client_cluster(body, namespace, required=True)
-        if client_cluster is None:
-            raise RuntimeError("required client cluster context is unavailable")
+        client_cluster = _client_cluster(body, namespace)
         _delete_deployment_if_exists(
             client_cluster, session_client_deployment_name(body)
         )
         _delete_job_if_exists(client_cluster, session_client_job_name(body))
-        legacy_deployment = legacy_session_client_deployment_name(body)
-        legacy_job = legacy_session_client_job_name(body)
-        if legacy_deployment != session_client_deployment_name(body):
-            _delete_deployment_if_exists(client_cluster, legacy_deployment)
-        if legacy_job != session_client_job_name(body):
-            _delete_job_if_exists(client_cluster, legacy_job)
     except Exception:
         _record_remote_cleanup_failure(client_cluster_name)
         raise
@@ -621,30 +577,6 @@ def _delete_session_workloads(body: dict, namespace: str) -> None:
 def _record_remote_cleanup_failure(cluster_name: str) -> None:
     if cluster_name not in _local_cluster_aliases():
         get_operator_metrics().record_remote_cleanup_failure(cluster_name)
-
-
-def _delete_legacy_session_workloads(body: dict, namespace: str) -> None:
-    server_cluster = _server_cluster(body, namespace, required=False)
-    client_cluster = _client_cluster(body, namespace, required=False)
-
-    if server_cluster is not None:
-        legacy_server = legacy_session_server_statefulset_name(body)
-        legacy_headless = legacy_session_headless_service_name(body)
-        legacy_service = legacy_session_service_name(body)
-        if legacy_server != session_server_statefulset_name(body):
-            _delete_statefulset_if_exists(server_cluster, legacy_server)
-        if legacy_headless != session_headless_service_name(body):
-            _delete_service_if_exists(server_cluster, legacy_headless)
-        if legacy_service != session_service_name(body):
-            _delete_service_if_exists(server_cluster, legacy_service)
-
-    if client_cluster is not None:
-        legacy_deployment = legacy_session_client_deployment_name(body)
-        legacy_job = legacy_session_client_job_name(body)
-        if legacy_deployment != session_client_deployment_name(body):
-            _delete_deployment_if_exists(client_cluster, legacy_deployment)
-        if legacy_job != session_client_job_name(body):
-            _delete_job_if_exists(client_cluster, legacy_job)
 
 
 def _reconcile_measurement(body: dict, namespace: str) -> dict:
@@ -700,8 +632,6 @@ def _reconcile_session(body: dict, namespace: str) -> dict:
     execution_mode = body["spec"]["execution"]["mode"]
     server_cluster = _server_cluster(body, namespace)
     client_cluster = _client_cluster(body, namespace)
-
-    _delete_legacy_session_workloads(body, namespace)
 
     headless_service = build_headless_service(body)
     cluster_service = build_cluster_ip_service(body)

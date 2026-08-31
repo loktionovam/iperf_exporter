@@ -1,7 +1,7 @@
 # Long-lived UDP quality baseline.
 # Run this when you want steady-state loss, jitter, and latency-spread metrics
 # without loading the path too aggressively.
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: MeasurementProfile
 metadata:
   name: udp-quality-continuous

@@ -1,4 +1,4 @@
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: LinkMeasurement
 metadata:
   name: udp-probe-demo
