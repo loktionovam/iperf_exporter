@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   iperf-exporter-server:
   - apiVersion: v2
+    appVersion: v4.0.0
+    created: "2026-08-31T16:42:35.880388329Z"
+    description: IPerf prometheus metrics exporter with optional client workload
+    digest: a56182b0127646f6f0f89702207f9ed488a021b46c8f071727d3dc9425eed77b
+    name: iperf-exporter-server
+    type: application
+    urls:
+    - https://github.com/loktionovam/iperf_exporter/releases/download/iperf-exporter-server-4.0.0/iperf-exporter-server-4.0.0.tgz
+    version: 4.0.0
+  - apiVersion: v2
     appVersion: v3.0.0
     created: "2026-07-24T15:53:05.743304843Z"
     description: IPerf prometheus metrics exporter with optional client workload
@@ -11,4 +21,15 @@ entries:
     urls:
     - https://github.com/loktionovam/iperf_exporter/releases/download/iperf-exporter-server-3.0.0/iperf-exporter-server-3.0.0.tgz
     version: 3.0.0
-generated: "2026-07-24T15:53:05.743309119Z"
+  iperf-operator:
+  - apiVersion: v2
+    appVersion: v4.0.0
+    created: "2026-08-31T16:42:36.023873655Z"
+    description: Declarative network measurements with iperf and Prometheus
+    digest: d377d51132b1f33969f97f91718edbb10eaa0127a31c5315ebfae2f452c674e1
+    name: iperf-operator
+    type: application
+    urls:
+    - https://github.com/loktionovam/iperf_exporter/releases/download/iperf-operator-4.0.0/iperf-operator-4.0.0.tgz
+    version: 4.0.0
+generated: "2026-08-31T16:42:36.023884012Z"
