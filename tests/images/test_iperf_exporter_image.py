@@ -1,7 +1,7 @@
 import subprocess
 import json
 import os
-from time import sleep
+from time import monotonic, sleep
 from unittest import TestCase
 
 import pytest
@@ -146,7 +146,8 @@ def test_image_stops_exporter_and_iperf_cleanly_on_sigterm():
         subprocess.run(["docker", "rm", "-f", server_id], check=False)
 
 
-def test_operator_image_exposes_prometheus_metrics():
+@pytest.mark.parametrize("startup_delay", [0, 2])
+def test_operator_image_exposes_prometheus_metrics(startup_delay: int) -> None:
     image = f"{IPERF_OPERATOR_IMAGE_NAME}:{IPERF_EXPORTER_IMAGE_TAG}"
     operator_id = subprocess.check_output(
         [
@@ -159,6 +160,7 @@ def test_operator_image_exposes_prometheus_metrics():
             "-c",
             (
                 "import time; "
+                f"time.sleep({startup_delay}); "
                 "from iperf_operator.metrics import "
                 "get_operator_metrics,start_operator_metrics_server; "
                 "get_operator_metrics(); "
@@ -169,22 +171,33 @@ def test_operator_image_exposes_prometheus_metrics():
         text=True,
     ).strip()
     try:
-        sleep(1)
-        metrics = subprocess.check_output(
-            [
-                "docker",
-                "exec",
-                operator_id,
-                "python",
-                "-c",
-                (
-                    "import urllib.request; "
-                    "print(urllib.request.urlopen("
-                    "'http://127.0.0.1:9869/metrics').read().decode())"
-                ),
-            ],
-            text=True,
-        )
+        deadline = monotonic() + 15
+        while True:
+            response = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    operator_id,
+                    "python",
+                    "-c",
+                    (
+                        "import urllib.request; "
+                        "print(urllib.request.urlopen("
+                        "'http://127.0.0.1:9869/metrics', timeout=2).read().decode())"
+                    ),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if response.returncode == 0:
+                break
+            if monotonic() >= deadline:
+                subprocess.run(["docker", "logs", operator_id], check=False, timeout=5)
+                pytest.fail(f"Operator metrics did not become ready: {response.stderr}")
+            sleep(0.2)
+        metrics = response.stdout
         assert "iperf_operator_build_info" in metrics
         assert "iperf_operator_start_time_seconds" in metrics
     finally:
