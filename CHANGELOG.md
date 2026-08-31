@@ -1,7 +1,7 @@
 # Changelog
 
 
-## v4.0.0 (unreleased)
+## v4.0.0 (2026-08-31)
 
 * Promote all four operator resources to `netperf.iperfexporter.io/v1`.
   The alpha API and legacy workload names are no longer supported; the operator
@@ -95,4 +95,3 @@
 * Update helm chart. [Aleksandr Loktionov]
 
 * Initial commit. [Aleksandr Loktionov]
-
