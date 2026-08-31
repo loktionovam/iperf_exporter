@@ -12,7 +12,6 @@ NAMESPACE="iperf-exporter-demo"
 LOCAL_CLUSTER_ID="${LOCAL_CLUSTER_ID:-cluster-a}"
 REMOTE_CLUSTER_ID="${REMOTE_CLUSTER_ID:-cluster-b}"
 INGRESS_HOST_SUFFIX="${INGRESS_HOST_SUFFIX:-127.0.0.1.nip.io}"
-INGRESS_HTTP_PORT="${INGRESS_HTTP_PORT:-8080}"
 INGRESS_NGINX_VERSION="${INGRESS_NGINX_VERSION:-controller-v1.15.1}"
 INGRESS_MANIFEST_URL="https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_VERSION}/deploy/static/provider/kind/deploy.yaml"
 REMOTE_ACCESS_SERVICEACCOUNT="${REMOTE_ACCESS_SERVICEACCOUNT:-iperf-exporter-remote-access}"
@@ -128,6 +127,16 @@ kind load docker-image "${EXPORTER_IMAGE_NAME}" --name "${CLUSTER_NAME}"
 kind load docker-image "${EXPORTER_IMAGE_NAME}" --name "${REMOTE_CLUSTER_NAME}"
 kind load docker-image "${OPERATOR_IMAGE_NAME}" --name "${CLUSTER_NAME}"
 
+# Download monitoring images once, before rollout timeouts start on kind nodes.
+for manifest in demo/kind/manifests/{prometheus,grafana}-deployment.yaml; do
+  monitoring_image="$(
+    kubectl --context "${KUBECTL_CONTEXT}" create --dry-run=client --validate=false \
+      -f "${manifest}" -o jsonpath='{.spec.template.spec.containers[0].image}'
+  )"
+  docker pull "${monitoring_image}"
+  kind load docker-image "${monitoring_image}" --name "${CLUSTER_NAME}"
+done
+
 kubectl --context "${KUBECTL_CONTEXT}" apply -f demo/kind/manifests/namespace.yaml
 kubectl --context "${REMOTE_KUBECTL_CONTEXT}" apply -k demo/kind/remote-manifests
 
@@ -214,5 +223,7 @@ fi
 
 "${ROOT_DIR}/demo/kind/verify.sh"
 
-echo "Grafana is available at http://grafana.${INGRESS_HOST_SUFFIX}:${INGRESS_HTTP_PORT}"
-echo "Prometheus is available at http://prometheus.${INGRESS_HOST_SUFFIX}:${INGRESS_HTTP_PORT}"
+INGRESS_HTTPS_PORT="$(docker inspect "${CLUSTER_NAME}-control-plane" --format '{{(index (index .NetworkSettings.Ports "443/tcp") 0).HostPort}}')"
+echo "Grafana is available at https://grafana.${INGRESS_HOST_SUFFIX}:${INGRESS_HTTPS_PORT}"
+echo "Prometheus is available at https://prometheus.${INGRESS_HOST_SUFFIX}:${INGRESS_HTTPS_PORT}"
+echo "The demo uses a self-signed TLS certificate."

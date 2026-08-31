@@ -409,16 +409,19 @@ def test_prometheus_sees_cross_cluster_measurement():
     def _has_cross_cluster_measurement() -> bool:
         payload = http_json(
             PROM_HOST,
-            "/api/v1/query?query=count(iperf_exporter_tcp_transfer%7Bmeasurement_id%3D%22tcp-cross-cluster-demo%22%7D)",
+            "/api/v1/query?query=count%20by%20(job)(iperf_exporter_tcp_transfer%7Bmeasurement_id%3D%22tcp-cross-cluster-demo%22%7D)",
         )
         result = payload["data"]["result"]
-        return bool(result) and float(result[0]["value"][1]) > 0
+        jobs = {
+            item["metric"].get("job") for item in result if float(item["value"][1]) > 0
+        }
+        return {"iperf-exporter", "iperf-exporter-remote"} <= jobs
 
     wait_until(
         _has_cross_cluster_measurement,
         timeout=60,
         interval=1,
-        message="Prometheus did not observe the cross-cluster measurement",
+        message="Prometheus did not observe both sides of the cross-cluster measurement",
     )
 
 
