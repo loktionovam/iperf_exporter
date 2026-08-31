@@ -13,7 +13,6 @@ SUPPORTED_DIRECTIONS = set(DEFAULT_DIRECTIONS)
 SUPPORTED_NETWORK_MODES = {"host", "pod", "service"}
 SUPPORTED_EXECUTION_MODES = {"continuous", "probe", "periodicProbe"}
 SUPPORTED_PROTOCOLS = {"tcp", "udp"}
-LEGACY_RESOURCE_NAME_MAX_LENGTH = 63
 RESOURCE_NAME_MAX_LENGTH = 50
 
 LABEL_PREFIX = "netperf.iperfexporter.io/"
@@ -415,17 +414,9 @@ def build_exporter_env(
     return env
 
 
-def session_resource_name(
-    session: dict, suffix: str, *, max_length: int = RESOURCE_NAME_MAX_LENGTH
-) -> str:
-    return stable_name(session["metadata"]["name"], suffix, max_length=max_length)
-
-
-def legacy_session_resource_name(session: dict, suffix: str) -> str:
-    return session_resource_name(
-        session,
-        suffix,
-        max_length=LEGACY_RESOURCE_NAME_MAX_LENGTH,
+def session_resource_name(session: dict, suffix: str) -> str:
+    return stable_name(
+        session["metadata"]["name"], suffix, max_length=RESOURCE_NAME_MAX_LENGTH
     )
 
 
@@ -469,32 +460,16 @@ def session_headless_service_name(session: dict) -> str:
     return session_resource_name(session, "headless")
 
 
-def legacy_session_headless_service_name(session: dict) -> str:
-    return legacy_session_resource_name(session, "headless")
-
-
 def session_service_name(session: dict) -> str:
     return session_resource_name(session, "service")
-
-
-def legacy_session_service_name(session: dict) -> str:
-    return legacy_session_resource_name(session, "service")
 
 
 def session_server_statefulset_name(session: dict) -> str:
     return session_resource_name(session, "server")
 
 
-def legacy_session_server_statefulset_name(session: dict) -> str:
-    return legacy_session_resource_name(session, "server")
-
-
 def session_client_deployment_name(session: dict) -> str:
     return session_resource_name(session, "client")
-
-
-def legacy_session_client_deployment_name(session: dict) -> str:
-    return legacy_session_resource_name(session, "client")
 
 
 def session_client_job_name(session: dict) -> str:
@@ -504,16 +479,6 @@ def session_client_job_name(session: dict) -> str:
         "client",
         generation,
         max_length=RESOURCE_NAME_MAX_LENGTH,
-    )
-
-
-def legacy_session_client_job_name(session: dict) -> str:
-    generation = str(session.get("metadata", {}).get("generation", "1"))
-    return stable_name(
-        session["metadata"]["name"],
-        "client",
-        generation,
-        max_length=LEGACY_RESOURCE_NAME_MAX_LENGTH,
     )
 
 

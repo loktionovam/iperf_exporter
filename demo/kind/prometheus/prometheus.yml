@@ -39,7 +39,7 @@ scrape_configs:
             - iperf-exporter-demo
     relabel_configs:
       - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
-        regex: iperf-exporter-operator
+        regex: iperf-operator
         action: keep
       - source_labels: [__meta_kubernetes_endpoint_port_name]
         regex: metrics

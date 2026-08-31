@@ -1,7 +1,7 @@
 # Periodic UDP quality probe.
 # Run this when you want scheduled snapshots of loss, jitter, and latency
 # spread without constant background UDP traffic.
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: MeasurementProfile
 metadata:
   name: udp-quality-periodic

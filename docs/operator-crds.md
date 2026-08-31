@@ -1,6 +1,6 @@
 # Operator CRD Reference
 
-This document describes the full field surface of the operator MVP CRDs:
+This document describes the full field surface of the operator CRDs:
 
 - `MeasurementProfile`
 - `RemoteCluster`
@@ -9,14 +9,14 @@ This document describes the full field surface of the operator MVP CRDs:
 
 API group and version:
 
-- `apiVersion: netperf.iperfexporter.io/v1alpha1`
+- `apiVersion: netperf.iperfexporter.io/v1`
 
 Common metadata:
 
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `apiVersion` | yes | CRD API version. |
-| `kind` | yes | One of `MeasurementProfile`, `LinkMeasurement`, `MeasurementSession`. |
+| `kind` | yes | One of `MeasurementProfile`, `RemoteCluster`, `LinkMeasurement`, `MeasurementSession`. |
 | `metadata.name` | yes | Object name. Used by the operator to build child resource names and labels. |
 | `metadata.namespace` | recommended | Namespace for the CR and generated child resources. |
 
@@ -137,8 +137,7 @@ Cross-cluster rule:
 
 - when `source.cluster != destination.cluster`, only `networkModes: ["host"]`
   is currently valid
-- `pod` and `service` are rejected because this MVP assumes those networks are
-  not routable between clusters
+- `pod` and `service` measurements are supported only within one cluster
 
 ## MeasurementSession
 
@@ -216,9 +215,9 @@ explicitly deleted.
 ## Operator metrics
 
 The operator exposes Prometheus metrics on port `9869` by default. Set
-`IPERF_OPERATOR_METRICS_PORT` to change the listening port. The demo publishes
-the endpoint through the `iperf-exporter-operator` Service and scrapes it as the
-`iperf-operator` Prometheus job.
+`IPERF_OPERATOR_METRICS_PORT` to change the listening port. The Helm chart publishes
+the endpoint through its operator Service. Enable `serviceMonitor.enabled`
+to discover it with Prometheus Operator.
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |
@@ -233,11 +232,3 @@ the endpoint through the `iperf-exporter-operator` Service and scrapes it as the
 | `iperf_operator_probe_duration_seconds` | `result` | Histogram of probe Job runtime derived from Kubernetes start/completion timestamps. |
 | `iperf_operator_start_time_seconds` | none | Unix timestamp when operator metrics were initialized. |
 | `iperf_operator_build_info` | `version`, `python_version` | Constant `1` with build and Python runtime information. |
-
-## v1alpha1 migration
-
-Reapply the CRDs, then reapply existing `MeasurementProfile` and
-`LinkMeasurement` objects. Remove the former `env`, `serverEnv`, `clientEnv`,
-`allowOverlap`, and user-provided `nodeAddress` fields before applying. The
-operator recreates generated `MeasurementSession` objects; no conversion webhook
-is provided for this experimental API.

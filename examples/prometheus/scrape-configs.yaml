@@ -1,0 +1,88 @@
+scrape_configs:
+  - job_name: iperf-exporter
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - iperf-measurements
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        regex: iperf-exporter
+        action: keep
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+        regex: server
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: metrics
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: kubernetes_service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod
+
+  - job_name: iperf-operator
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - iperf-measurements
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        regex: iperf-operator
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: metrics
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod
+
+  - job_name: iperf-exporter-standalone
+    kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+            - iperf-measurements
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        regex: iperf-exporter-server
+        action: keep
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+        regex: server
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: http-metrics
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: kubernetes_service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod
+
+  - job_name: iperf-exporter-remote
+    kubernetes_sd_configs:
+      - role: endpoints
+        kubeconfig_file: /etc/prometheus/remote/cluster-b.kubeconfig
+        namespaces:
+          names:
+            - iperf-measurements
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_name]
+        regex: iperf-exporter
+        action: keep
+      - source_labels: [__meta_kubernetes_service_label_app_kubernetes_io_component]
+        regex: server
+        action: keep
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        regex: metrics
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        target_label: kubernetes_service
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod

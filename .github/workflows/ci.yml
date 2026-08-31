@@ -61,10 +61,16 @@ jobs:
         with:
           fetch-depth: 0
       - uses: azure/setup-helm@v5
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install chart test dependencies
+        run: python -m pip install -r requirements-dev.txt
       - name: Validate Helm, Kustomize, Compose, and dashboards
         run: |
           make validate-manifests
-          helm lint --strict helm/charts/iperf-exporter-server
+          make test-charts build-charts
           helm template udp-test helm/charts/iperf-exporter-server >/dev/null
           helm template tcp-test helm/charts/iperf-exporter-server \
             --set server.config.proto=tcp \
@@ -79,9 +85,6 @@ jobs:
     needs:
       - apps
       - manifests
-    permissions:
-      contents: read
-      packages: write
     env:
       IPERF_EXPORTER_IMAGE_NAME: ghcr.io/loktionovam/iperf_exporter_server
       IPERF_OPERATOR_IMAGE_NAME: ghcr.io/loktionovam/iperf_operator
@@ -118,27 +121,32 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
-      - name: Log in to GitHub Container Registry
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v4
+      - name: Save tested images
+        shell: bash
+        run: |
+          docker save \
+            "${IPERF_EXPORTER_IMAGE_NAME}:${IPERF_EXPORTER_IMAGE_TAG}" \
+            "${IPERF_OPERATOR_IMAGE_NAME}:${IPERF_EXPORTER_IMAGE_TAG}" \
+            | gzip > "${RUNNER_TEMP}/tested-images.tar.gz"
+      - name: Upload tested images
+        uses: actions/upload-artifact@v7
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push images
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: make push-images
+          name: tested-images
+          path: ${{ runner.temp }}/tested-images.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+          overwrite: true
 
   kind-e2e:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
-      startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     needs:
-      - apps
-      - manifests
+      - images
     timeout-minutes: 45
+    env:
+      EXPORTER_IMAGE_NAME: ghcr.io/loktionovam/iperf_exporter_server:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('ci-{0}', github.run_id) }}
+      OPERATOR_IMAGE_NAME: ghcr.io/loktionovam/iperf_operator:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('ci-{0}', github.run_id) }}
+      SKIP_IMAGE_BUILD: "true"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -152,7 +160,14 @@ jobs:
           go install sigs.k8s.io/kind@v0.29.0
           sudo install "$(go env GOPATH)/bin/kind" /usr/local/bin/kind
           python -m pip install -r requirements-dev.txt
-      - name: Run two-cluster kind test
+      - name: Download tested images
+        uses: actions/download-artifact@v8
+        with:
+          name: tested-images
+          path: ${{ runner.temp }}/tested-images
+      - name: Load tested images
+        run: docker load --input "${RUNNER_TEMP}/tested-images/tested-images.tar.gz"
+      - name: Run two-cluster kind test with tested images
         run: make demo-kind-up
       - name: Run Helm TCP and UDP service tests
         run: |
@@ -162,8 +177,8 @@ jobs:
               --kube-context kind-iperf-demo \
               --namespace "helm-${proto}" \
               --create-namespace \
-              --set image.repository=iperf_exporter \
-              --set image.tag=kind-demo \
+              --set-string image.repository="${EXPORTER_IMAGE_NAME%:*}" \
+              --set-string image.tag="${EXPORTER_IMAGE_NAME##*:}" \
               --set image.pullPolicy=Never \
               --set "server.config.proto=${proto}" \
               --set "client.config.proto=${proto}"
@@ -196,14 +211,21 @@ jobs:
         if: always()
         run: make demo-kind-down
 
-  release-chart:
+  release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     needs:
+      - apps
+      - manifests
       - images
       - kind-e2e
     permissions:
       contents: write
+      packages: write
+    env:
+      IPERF_EXPORTER_IMAGE_NAME: ghcr.io/loktionovam/iperf_exporter_server
+      IPERF_OPERATOR_IMAGE_NAME: ghcr.io/loktionovam/iperf_operator
+      IPERF_EXPORTER_IMAGE_TAG: ${{ github.ref_name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -213,9 +235,31 @@ jobs:
         run: |
           git config user.name "${GITHUB_ACTOR}"
           git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-      - name: Package chart
-        run: make build-charts
-      - name: Publish chart
+      - name: Prepare charts and release notes
+        run: |
+          make build-charts
+          awk -v version="${GITHUB_REF_NAME}" '
+            $1 == "##" && $2 == version { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "${RUNNER_TEMP}/release-notes.md"
+          test -s "${RUNNER_TEMP}/release-notes.md"
+      - name: Download tested images
+        uses: actions/download-artifact@v8
+        with:
+          name: tested-images
+          path: ${{ runner.temp }}/tested-images
+      - name: Load tested images
+        run: docker load --input "${RUNNER_TEMP}/tested-images/tested-images.tar.gz"
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish tested images
+        run: make push-images
+      - name: Publish charts
         uses: helm/chart-releaser-action@3e001cb8c68933439c7e721650f20a07a1a5c61e
         with:
           charts_dir: helm/charts
@@ -227,13 +271,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          awk -v version="${GITHUB_REF_NAME}" '
-            $0 ~ "^## " version " " { found = 1; next }
-            found && /^## / { exit }
-            found { print }
-          ' CHANGELOG.md > /tmp/release-notes.md
-          test -s /tmp/release-notes.md
           gh release create "${GITHUB_REF_NAME}" \
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \
-            --notes-file /tmp/release-notes.md
+            --notes-file "${RUNNER_TEMP}/release-notes.md"

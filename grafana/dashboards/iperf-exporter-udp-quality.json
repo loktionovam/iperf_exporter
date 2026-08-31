@@ -307,7 +307,9 @@
       "description": "Packet loss percentage reported by iperf for the interval. Displayed as a percent value.",
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit"
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },

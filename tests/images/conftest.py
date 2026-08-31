@@ -6,7 +6,7 @@ import testinfra
 IPERF_EXPORTER_IMAGE_NAME = os.environ.get(
     "IPERF_EXPORTER_IMAGE_NAME", "ghcr.io/loktionovam/iperf_exporter_server"
 )
-IPERF_EXPORTER_IMAGE_TAG = os.environ.get("IPERF_EXPORTER_IMAGE_TAG", "4229e23")
+IPERF_EXPORTER_IMAGE_TAG = os.environ.get("IPERF_EXPORTER_IMAGE_TAG", "v4.0.0")
 
 
 # scope='session' uses the same container for all the tests;

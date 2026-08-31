@@ -3,7 +3,7 @@ SHELL := /bin/bash
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 IPERF_EXPORTER_IMAGE_NAME ?= ghcr.io/loktionovam/iperf_exporter_server
 IPERF_OPERATOR_IMAGE_NAME ?= ghcr.io/loktionovam/iperf_operator
-IPERF_EXPORTER_IMAGE_TAG ?= $(shell ./get_version.sh)
+IPERF_EXPORTER_IMAGE_TAG ?= v$(shell sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
 RELEASE_VERSION ?= $(patsubst v%,%,$(IPERF_EXPORTER_IMAGE_TAG))
 GIT_BRANCH_NAME := $(shell git branch  --show-current)
 DOCKER_COMPOSE ?= docker compose
@@ -13,6 +13,7 @@ KIND_DEMO_NAMESPACE ?= iperf-exporter-demo
 KIND_DEMO_CONTEXT ?= kind-$(KIND_DEMO_CLUSTER_NAME)
 KIND_DEMO_EXPORTER_IMAGE_NAME ?= iperf_exporter:kind-demo
 KIND_DEMO_OPERATOR_IMAGE_NAME ?= iperf_operator:kind-demo
+HELM_CHARTS := helm/charts/iperf-exporter-server helm/charts/iperf-operator
 export
 
 lint:
@@ -46,13 +47,20 @@ push-images:
 	docker push $(IPERF_EXPORTER_IMAGE_NAME):$(IPERF_EXPORTER_IMAGE_TAG)
 	docker push $(IPERF_OPERATOR_IMAGE_NAME):$(IPERF_EXPORTER_IMAGE_TAG)
 
-build-charts:
-	helm lint --strict helm/charts/iperf-exporter-server
+lint-charts:
+	helm lint --strict $(HELM_CHARTS)
+
+test-charts: lint-charts
+	$(PYTHON) -m pytest tests/charts -v
+
+build-charts: lint-charts
 	mkdir -p .cr-release-packages
-	helm package helm/charts/iperf-exporter-server \
-		--version $(RELEASE_VERSION) \
-		--app-version $(IPERF_EXPORTER_IMAGE_TAG) \
-		--destination .cr-release-packages
+	for chart in $(HELM_CHARTS); do \
+		helm package "$$chart" \
+			--version $(RELEASE_VERSION) \
+			--app-version $(IPERF_EXPORTER_IMAGE_TAG) \
+			--destination .cr-release-packages || exit $$?; \
+	done
 
 validate-manifests:
 	kubectl kustomize demo/kind/manifests >/dev/null
@@ -70,7 +78,7 @@ else
 	@echo "Current branch is $(GIT_BRANCH_NAME), skipping to update CHANGELOG.md"
 endif
 
-all: test-apps validate-manifests build-images test-images build-charts
+all: test-apps validate-manifests test-charts build-images test-images build-charts
 
 demo-compose-up:
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) up -d --build
@@ -90,6 +98,6 @@ demo-kind-up:
 demo-kind-down:
 	./demo/kind/down.sh
 
-.PHONY: test-apps fmt lint build-images test-images push-images build-charts validate-manifests all \
+.PHONY: test-apps fmt lint build-images test-images push-images lint-charts test-charts build-charts validate-manifests all \
 	demo-compose-up demo-compose-down demo-compose-config \
 	demo-kind-up demo-kind-down demo-kind-verify

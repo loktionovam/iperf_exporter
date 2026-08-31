@@ -2,7 +2,7 @@
 # Run this when you want a steady TCP flow that is easy to leave on for hours.
 # It is meant to verify routing, MSS/MTU, congestion control, exporter health,
 # and the TCP quality dashboards with minimal operator babysitting.
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: MeasurementProfile
 metadata:
   name: tcp-quality-continuous

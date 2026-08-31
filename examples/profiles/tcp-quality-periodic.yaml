@@ -1,7 +1,7 @@
 # Periodic TCP quality probe.
 # Run this when you want repeated TCP quality sampling on a schedule instead of
 # keeping client traffic on continuously.
-apiVersion: netperf.iperfexporter.io/v1alpha1
+apiVersion: netperf.iperfexporter.io/v1
 kind: MeasurementProfile
 metadata:
   name: tcp-quality-periodic

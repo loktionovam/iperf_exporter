@@ -6,8 +6,8 @@ This demo creates two kind clusters:
 - `iperf-demo-remote`: one control-plane node plus one worker
 
 It loads two local images,
-`iperf_exporter:kind-demo` and `iperf_operator:kind-demo`, deploys the `kopf`
-operator, installs Prometheus and Grafana, provisions the repository dashboards,
+`iperf_exporter:kind-demo` and `iperf_operator:kind-demo`, installs the
+`iperf-operator` Helm chart, Prometheus and Grafana, provisions the repository dashboards,
 and applies example `MeasurementProfile`, `RemoteCluster`, and
 `LinkMeasurement` resources.
 
@@ -73,9 +73,7 @@ make demo-kind-up
 `make demo-kind-up` rebuilds and reloads both the exporter and operator demo
 images into kind, refreshes the dashboard ConfigMaps, reinstalls ingress when
 needed, and restarts the operator plus generated workloads so code and
-dashboard changes are visible immediately on an existing cluster. The `make`
-targets call the shell scripts, so old script-based usage still works
-unchanged.
+dashboard changes are visible immediately on an existing v1 demo cluster.
 
 Verify again later:
 

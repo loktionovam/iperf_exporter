@@ -14,7 +14,7 @@ RUN python -m pip install --no-cache-dir -r requirements-operator.txt \
 
 COPY iperf_operator ./iperf_operator
 
-ARG VERSION=dev
+ARG VERSION=v4.0.0
 
 USER iperf_operator
 

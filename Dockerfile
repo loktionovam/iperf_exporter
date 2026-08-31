@@ -15,7 +15,7 @@ COPY iperf_exporter ./iperf_exporter
 RUN python -m pip install --no-cache-dir . \
     && python -m pip uninstall --yes pip setuptools
 
-ARG VERSION=dev
+ARG VERSION=v4.0.0
 
 USER iperf_exporter
 

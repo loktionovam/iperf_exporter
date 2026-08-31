@@ -1,0 +1,6 @@
+The operator watches namespace {{ .Release.Namespace }} as cluster {{ .Values.localClusterName }}.
+Create a MeasurementProfile and LinkMeasurement to start traffic.
+
+kubectl -n {{ .Release.Namespace }} get measurementprofiles,linkmeasurements,measurementsessions
+
+Prometheus and Grafana are not installed by this chart.
