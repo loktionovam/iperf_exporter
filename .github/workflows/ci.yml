@@ -260,7 +260,7 @@ jobs:
       - name: Publish tested images
         run: make push-images
       - name: Publish charts
-        uses: helm/chart-releaser-action@3e001cb8c68933439c7e721650f20a07a1a5c61e
+        uses: helm/chart-releaser-action@d41fa21057d11bf4be8a7e969bb41e15a179fb4a
         with:
           charts_dir: helm/charts
           skip_packaging: true
