@@ -223,6 +223,19 @@ kubectl --context "${KUBECTL_CONTEXT}" delete -f "${DEMO_TMP_DIR}/examples/measu
 kubectl --context "${KUBECTL_CONTEXT}" delete -f "${DEMO_TMP_DIR}/examples/measurement-tcp-cross-cluster.yaml" --ignore-not-found=true
 kubectl --context "${KUBECTL_CONTEXT}" delete -f "${DEMO_TMP_DIR}/examples/remote-cluster-b.yaml" --ignore-not-found=true
 
+# Refresh existing exporter Pods before creating any one-shot probe Jobs.
+EXPORTER_PODS=()
+while IFS= read -r pod_name; do
+  [[ -n "${pod_name}" ]] && EXPORTER_PODS+=("${pod_name}")
+done < <(
+  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" get pod \
+    -l app.kubernetes.io/name=iperf-exporter -o name || true
+)
+if ((${#EXPORTER_PODS[@]} > 0)); then
+  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" delete \
+    "${EXPORTER_PODS[@]}" --ignore-not-found=true >/dev/null
+fi
+
 shopt -s nullglob
 for manifest in "${DEMO_TMP_DIR}"/examples/profile-*.yaml; do
   kubectl --context "${KUBECTL_CONTEXT}" apply -f "${manifest}"
@@ -237,18 +250,6 @@ kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" rollout restart \
   deploy/iperf-operator \
   deploy/prometheus \
   deploy/grafana
-
-EXPORTER_PODS=()
-while IFS= read -r pod_name; do
-  [[ -n "${pod_name}" ]] && EXPORTER_PODS+=("${pod_name}")
-done < <(
-  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" get pod \
-    -l app.kubernetes.io/name=iperf-exporter -o name || true
-)
-if ((${#EXPORTER_PODS[@]} > 0)); then
-  kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" delete \
-    "${EXPORTER_PODS[@]}" --ignore-not-found=true >/dev/null
-fi
 
 SERVER_WORKLOADS="$(kubectl --context "${KUBECTL_CONTEXT}" -n "${NAMESPACE}" get statefulset -l app.kubernetes.io/name=iperf-exporter,app.kubernetes.io/component=server -o name || true)"
 if [[ -n "${SERVER_WORKLOADS}" ]]; then
