@@ -1,15 +1,19 @@
 import base64
+import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest import mock
 
 import kopf
 import pytest
+import urllib3
 import yaml
+from kubernetes import client
 from kubernetes.client.rest import ApiException
 from kopf.testing import KopfRunner
 
 from iperf_operator import controller
+from iperf_operator.manifests import build_server_statefulset
 from iperf_operator.specs import SESSION_LABEL_KEYS, build_session_labels
 
 
@@ -145,6 +149,42 @@ def test_statefulset_422_is_propagated_without_deleting_workload():
     assert error.value.status == 422
     cluster.apps.create_namespaced_stateful_set.assert_not_called()
     cluster.apps.delete_namespaced_stateful_set.assert_not_called()
+
+
+def test_statefulset_create_accepts_probes_with_real_kubernetes_client():
+    body = build_server_statefulset(_session())
+    responses = [
+        urllib3.response.HTTPResponse(
+            body=b'{"code":404,"message":"not found"}',
+            status=404,
+            headers={"Content-Type": "application/json"},
+        ),
+        urllib3.response.HTTPResponse(
+            body=json.dumps(body).encode("utf-8"),
+            status=201,
+            headers={"Content-Type": "application/json"},
+        ),
+    ]
+    with client.ApiClient() as api_client:
+        cluster = controller._cluster_context_from_api_client(
+            "local", "demo", api_client, is_local=True
+        )
+        with mock.patch.object(
+            api_client.rest_client.pool_manager, "request", side_effect=responses
+        ) as request:
+            controller._apply_statefulset(cluster, body)
+
+    assert [call.args[0] for call in request.call_args_list] == ["PATCH", "POST"]
+    patch_request, create_request = request.call_args_list
+    patch_body = json.loads(patch_request.kwargs["body"])
+    create_body = json.loads(create_request.kwargs["body"])
+    patch_container = patch_body["spec"]["template"]["spec"]["containers"][0]
+    create_container = create_body["spec"]["template"]["spec"]["containers"][0]
+    for probe_name in ("readinessProbe", "livenessProbe"):
+        assert patch_container[probe_name] == create_container[probe_name]
+        assert "$patch" not in create_container[probe_name]
+        assert create_container[probe_name]["tcpSocket"] == {"port": 9868}
+    assert body == build_server_statefulset(_session())
 
 
 def test_non_404_apply_error_is_propagated():

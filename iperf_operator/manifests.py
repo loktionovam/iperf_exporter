@@ -137,14 +137,12 @@ def build_server_statefulset(session: dict) -> dict:
                                 },
                             ],
                             "readinessProbe": {
-                                "$patch": "replace",
                                 "tcpSocket": {"port": exporter["bindPort"]},
                                 "initialDelaySeconds": 3,
                                 "periodSeconds": 5,
                                 "timeoutSeconds": 2,
                             },
                             "livenessProbe": {
-                                "$patch": "replace",
                                 "tcpSocket": {"port": exporter["bindPort"]},
                                 "initialDelaySeconds": 10,
                                 "periodSeconds": 10,
